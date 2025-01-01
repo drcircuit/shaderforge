@@ -1,0 +1,4 @@
+{
+    "dotnet.defaultRuntime": "WSL",
+    "terminal.integrated.shell.linux": "/bin/bash"
+  }

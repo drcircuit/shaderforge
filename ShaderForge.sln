@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShaderForge.API", "ShaderForge.API\ShaderForge.API.csproj", "{0C3B8010-0095-4938-A665-B6502B06599A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShaderForge.API.Tests", "ShaderForge.API.Tests\ShaderForge.API.Tests.csproj", "{001CEEC3-C938-425E-9E25-787522AE6E94}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0C3B8010-0095-4938-A665-B6502B06599A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C3B8010-0095-4938-A665-B6502B06599A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C3B8010-0095-4938-A665-B6502B06599A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C3B8010-0095-4938-A665-B6502B06599A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{001CEEC3-C938-425E-9E25-787522AE6E94}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{001CEEC3-C938-425E-9E25-787522AE6E94}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{001CEEC3-C938-425E-9E25-787522AE6E94}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{001CEEC3-C938-425E-9E25-787522AE6E94}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

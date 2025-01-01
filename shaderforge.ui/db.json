@@ -1,0 +1,79 @@
+{
+    "featuredShader": {
+      "id": 1,
+      "name": "Beautiful Fractal",
+      "description": "A mesmerizing fractal shader showcasing recursion.",
+      "tags": ["fractal", "recursion", "math"],
+      "author": "User123",
+      "image": "/assets/images/featured-shader.jpg",
+      "likes": 120,
+      "views": 3500
+    },
+    "newestShaders": [
+      {
+        "id": 2,
+        "name": "Shader Galaxy",
+        "description": "A galaxy shader with stars and nebulae.",
+        "tags": ["space", "galaxy", "stars"],
+        "author": "User456",
+        "image": "/assets/images/shader1.jpg",
+        "likes": 85,
+        "views": 2100
+      },
+      {
+        "id": 3,
+        "name": "Ocean Waves",
+        "description": "A realistic ocean wave simulation.",
+        "tags": ["water", "simulation", "ocean"],
+        "author": "User789",
+        "image": "/assets/images/shader2.jpg",
+        "likes": 95,
+        "views": 2700
+      }
+    ],
+    "highestRatedShaders": [
+      {
+        "id": 4,
+        "name": "Lava Flow",
+        "description": "A lava flow shader with dynamic heat distortion.",
+        "tags": ["lava", "heat", "fire"],
+        "author": "User987",
+        "image": "/assets/images/shader4.jpg",
+        "likes": 300,
+        "views": 5000
+      },
+      {
+        "id": 5,
+        "name": "Aurora Borealis",
+        "description": "A shader mimicking the northern lights.",
+        "tags": ["aurora", "lights", "sky"],
+        "author": "User321",
+        "image": "/assets/images/shader5.jpg",
+        "likes": 275,
+        "views": 4900
+      }
+    ],
+    "mostViewedShaders": [
+      {
+        "id": 6,
+        "name": "Cosmic Explosion",
+        "description": "A shader simulating a supernova explosion.",
+        "tags": ["explosion", "space", "supernova"],
+        "author": "User654",
+        "image": "/assets/images/shader6.jpg",
+        "likes": 150,
+        "views": 7500
+      },
+      {
+        "id": 7,
+        "name": "Rain Drops",
+        "description": "A realistic rain effect shader.",
+        "tags": ["rain", "weather", "water"],
+        "author": "User987",
+        "image": "/assets/images/shader7.jpg",
+        "likes": 200,
+        "views": 7200
+      }
+    ]
+  }
+  
