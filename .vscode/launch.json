@@ -1,18 +1,53 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
+    "compounds": [
+      {
+        "name": "Launch All",
+        "configurations": ["Launch API", "Launch UI"]
+      }
+    ],
     "configurations": [
-        
-        {
-            "name": "C#: ShaderForge.API [Default Configuration]",
-            "type": "dotnet",
-            "request": "launch",
-            "projectPath": "${workspaceFolder}/ShaderForge.API/ShaderForge.API.csproj",
-            
-        },
-
-        
+      {
+        "name": "Launch API",
+        "type": "coreclr",
+        "request": "launch",
+        "preLaunchTask": "build",
+        "program": "${workspaceFolder}/ShaderForge.API/bin/Debug/net9.0/ShaderForge.API.dll",
+        "args": [],
+        "cwd": "${workspaceFolder}/ShaderForge.API",
+        "stopAtEntry": false,
+        "serverReadyAction": {
+          "action": "openExternally",
+          "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+        }
+      },
+      {
+        "name": "Attach to API",
+        "type": "coreclr",
+        "request": "attach",
+        "processId": "${command:pickProcess}"
+      },
+      {
+        "name": "Launch UI",
+        "type": "chrome",
+        "request": "launch",
+        "url": "http://localhost:8080",
+        "webRoot": "${workspaceFolder}/shaderforge.ui",
+        "sourceMapPathOverrides": {
+          "webpack://@/./*": "${webRoot}/src/*"
+        }
+      },
+      {
+        "name": "Attach to UI",
+        "type": "node",
+        "request": "attach",
+        "port": 9229,
+        "restart": true,
+        "protocol": "inspector",
+        "timeout": 10000,
+        "sourceMaps": true,
+        "outFiles": ["${workspaceFolder}/shaderforge.ui/dist/**/*.js"]
+      }
     ]
-}
+  }
+  

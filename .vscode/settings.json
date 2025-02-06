@@ -1,4 +1,39 @@
 {
-    "dotnet.defaultRuntime": "WSL",
-    "terminal.integrated.shell.linux": "/bin/bash"
-  }
+  "editor.tabSize": 2,
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/bin": true,
+    "**/obj": true,
+    "**/.vscode/**": false
+  },
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "terminal.integrated.defaultProfile.osx": "zsh",
+  "terminal.integrated.env.linux": {
+    "DOTNET_ROOT": "/usr/share/dotnet",
+    "NODE_ENV": "development"
+  },
+  "terminal.integrated.env.osx": {
+    "DOTNET_ROOT": "/usr/local/share/dotnet",
+    "NODE_ENV": "development"
+  },
+  "terminal.integrated.env.windows": {
+    "NODE_ENV": "development"
+  },
+  "debug.openDebug": "neverOpen",
+  "debug.javascript.autoAttachFilter": "always",
+  "debug.node.autoAttach": "on",
+  "debug.internalConsoleOptions": "neverOpen",
+  "debug.terminal.clearBeforeReusing": true,
+  "vs-kubernetes": {
+    "vs-kubernetes.kubectl-path": "/usr/local/bin/kubectl"
+  },
+  "dotnet.defaultSolution": "ShaderForge.sln",
+  "C_Cpp.default.intelliSenseMode": "clang-x64",
+  "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+  "eslint.validate": ["javascript", "typescript", "vue"],
+  "prettier.requireConfig": true,
+  "prettier.useEditorConfig": true
+}
