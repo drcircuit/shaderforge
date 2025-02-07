@@ -1,7 +1,7 @@
 {
   "editor.tabSize": 2,
   "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.defaultFormatter": "ms-azure-devops.azure-pipelines",
   "files.exclude": {
     "**/node_modules": true,
     "**/bin": true,
@@ -13,7 +13,8 @@
   "terminal.integrated.defaultProfile.osx": "zsh",
   "terminal.integrated.env.linux": {
     "DOTNET_ROOT": "/usr/share/dotnet",
-    "NODE_ENV": "development"
+    "NODE_ENV": "development",
+    "VITE_DESIGN_MODE": "true"
   },
   "terminal.integrated.env.osx": {
     "DOTNET_ROOT": "/usr/local/share/dotnet",
@@ -35,5 +36,11 @@
   "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
   "eslint.validate": ["javascript", "typescript", "vue"],
   "prettier.requireConfig": true,
-  "prettier.useEditorConfig": true
+  "prettier.useEditorConfig": true,
+  "[vue]": {
+    "editor.defaultFormatter": "vscode.typescript-language-features"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  }
 }

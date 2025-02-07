@@ -1,6 +1,6 @@
 // API Response Types
 export interface ShaderApiResponse {
-  id: number;
+  id: string;
   name: string;
   description: string;
   tags: string[];
@@ -12,7 +12,7 @@ export interface ShaderApiResponse {
 
 // Frontend-Specific Types
 export interface Shader {
-  id: number;
+  id: string;
   name: string;
   description: string;
   tags: string[];

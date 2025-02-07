@@ -1,6 +1,9 @@
-import { createApp } from 'vue';
-import App from './App.vue';
-import './registerServiceWorker';
-import router from './router';
+import { createApp } from "vue";
+import App from "./App.vue";
+import vuetify from "./plugins/vuetify";
+import router from "./router"; // Ensure router is imported if used
 
-createApp(App).use(router).mount('#app');
+const app = createApp(App);
+app.use(vuetify);
+app.use(router);
+app.mount("#app");
