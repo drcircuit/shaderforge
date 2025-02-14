@@ -10,7 +10,7 @@ const startProcess = (command, args, cwd) => {
 // Detect OS and architecture
 const isWindows = os.platform() === "win32";
 const isMacArm = os.platform() === "darwin" && os.arch() === "arm64";
-const isWSL = os.release().toLowerCase().includes("microsoft");
+const isWSL = os.release().toLowerCase().includes("linux");
 
 // Paths
 const backendPath = "./ShaderForge.API";

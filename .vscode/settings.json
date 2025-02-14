@@ -34,13 +34,20 @@
   "dotnet.defaultSolution": "ShaderForge.sln",
   "C_Cpp.default.intelliSenseMode": "clang-x64",
   "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
-  "eslint.validate": ["javascript", "typescript", "vue"],
+  "eslint.validate": [
+    "javascript",
+    "typescript",
+    "vue"
+  ],
   "prettier.requireConfig": true,
   "prettier.useEditorConfig": true,
   "[vue]": {
     "editor.defaultFormatter": "vscode.typescript-language-features"
   },
   "[jsonc]": {
+    "editor.defaultFormatter": "vscode.json-language-features"
+  },
+  "[json]": {
     "editor.defaultFormatter": "vscode.json-language-features"
   }
 }
