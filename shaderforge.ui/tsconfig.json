@@ -18,10 +18,7 @@
       "vuetify"
     ],
     "paths": {
-      "@/*": [
-        "src/*",
-        "node_modules/*"
-      ]
+      "@/*": ["src/*"]
     },
     "lib": [
       "esnext",

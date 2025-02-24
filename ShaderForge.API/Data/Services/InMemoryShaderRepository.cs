@@ -5,7 +5,12 @@ namespace ShaderForge.API.Data.Services
 {
     public class InMemoryShaderRepository : IShaderRepository
     {
-        private readonly List<Shader> _shaders = new List<Shader>();
+        private readonly List<Shader> _shaders;
+
+        public InMemoryShaderRepository(IShaderDataService shaderDataService)
+        {
+            _shaders = shaderDataService.GetDefaultShaders().ToList();
+        }
 
         public IEnumerable<Shader> GetAllShaders()
         {

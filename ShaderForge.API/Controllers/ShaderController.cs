@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
-using ShaderForge.API.Data.DTO;
-using ShaderForge.API.Data.Interfaces;
+using ShaderForge.API.Data.Models;
 using System.Collections.Generic;
+using System.Linq;
+using ShaderForge.API.Data.Interfaces;
+using ShaderForge.API.Data.DTO;
 
 namespace ShaderForge.API.Controllers
 {
@@ -40,21 +42,32 @@ namespace ShaderForge.API.Controllers
             var shaders = _shaderRepository.GetShadersByCreatedBy(createdBy);
             return Ok(shaders);
         }
-        // requires logged in user to work
+
+        [HttpGet("default")]
+        public ActionResult<IEnumerable<Shader>> GetDefaultShaders()
+        {
+            var shaders = _shaderRepository.GetAllShaders();
+            return Ok(shaders);
+        }
+
+        [HttpGet("public")]
+        public ActionResult<IEnumerable<Shader>> GetPublicShaders()
+        {
+            var shaders = _shaderRepository.GetAllShaders().Where(s => s.IsPublic);
+            return Ok(shaders);
+        }
 
         [HttpPost]
         public ActionResult<Shader> CreateShader([FromBody] Shader shader)
         {
-            // check if id is set, if set return bad request
             if (shader.Id != null)
             {
                 return BadRequest();
             }
-            // give shader a new id
             shader.Id = System.Guid.NewGuid().ToString();
-            // set dates
             shader.CreatedAt = System.DateTime.Now;
             shader.UpdatedAt = System.DateTime.Now;
+            shader.IsPublic = false; // Default to private
             _shaderRepository.AddShader(shader);
             return CreatedAtAction(nameof(GetShaderById), new { id = shader.Id }, shader);
         }
@@ -66,7 +79,6 @@ namespace ShaderForge.API.Controllers
             {
                 return BadRequest();
             }
-            // update date
             shader.UpdatedAt = System.DateTime.Now;
             _shaderRepository.UpdateShader(shader);
             return NoContent();

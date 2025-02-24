@@ -1,23 +1,14 @@
 import axios from 'axios';
-import { ShaderApiResponse, Shader } from '@/models/shaders';
+import { Shader, ShaderApiResponse } from '@/models/shaders';
+import { BackgroundImage } from '@/models/background';
 
 const API_BASE_URL = process.env.VUE_APP_API_BASE_URL;
 
-/**
- * Maps the raw API response to the frontend-specific Shader type.
- * @param apiResponse - The raw API response.
- * @returns A Shader object for the frontend.
- */
-const mapToShader = (apiResponse: ShaderApiResponse): Shader => {
+const mapToShader = (apiShader: ShaderApiResponse): Shader => {
   return {
-    id: apiResponse.id,
-    name: apiResponse.name,
-    description: apiResponse.description,
-    tags: apiResponse.tags,
-    author: apiResponse.author,
-    imageUrl: apiResponse.image, // Rename for clarity
-    likes: apiResponse.likes,
-    views: apiResponse.views,
+    ...apiShader,
+    createdAt: new Date(apiShader.createdAt).toISOString(),
+    updatedAt: new Date(apiShader.updatedAt).toISOString(),
   };
 };
 
@@ -27,10 +18,10 @@ const mapToShader = (apiResponse: ShaderApiResponse): Shader => {
  */
 export const getFeaturedShader = async (): Promise<Shader> => {
   try {
-    const response = await axios.get<ShaderApiResponse>(
-      `${API_BASE_URL}/featuredShader`
+    const response = await axios.get<Shader>(
+      `${API_BASE_URL}/Shaders/Featured`
     );
-    return mapToShader(response.data);
+    return response.data;
   } catch (error) {
     console.error('Error fetching featured shader:', error);
     throw new Error('Failed to fetch the featured shader.');
@@ -39,14 +30,17 @@ export const getFeaturedShader = async (): Promise<Shader> => {
 
 /**
  * Fetches the newest shaders.
- * @returns An array of Shader objects representing the newest shaders.
+ * @returns An array of the 10 most recent Shader objects.
  */
 export const getNewestShaders = async (): Promise<Shader[]> => {
   try {
-    const response = await axios.get<ShaderApiResponse[]>(
-      `${API_BASE_URL}/newestShaders`
+    const response = await axios.get<Shader[]>(
+      `${API_BASE_URL}/Shaders`
     );
-    return response.data.map(mapToShader);
+    // Sort by createdAt date descending and take the first 10
+    return response.data
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10);
   } catch (error) {
     console.error('Error fetching newest shaders:', error);
     throw new Error('Failed to fetch the newest shaders.');
@@ -82,5 +76,21 @@ export const getMostViewedShaders = async (): Promise<Shader[]> => {
   } catch (error) {
     console.error('Error fetching most-viewed shaders:', error);
     throw new Error('Failed to fetch the most-viewed shaders.');
+  }
+};
+
+/**
+ * Fetches the available background images.
+ * @returns An array of background image URLs.
+ */
+export const getSiteBackgrounds = async (): Promise<string[]> => {
+  try {
+    const response = await axios.get<BackgroundImage[]>(
+      `${API_BASE_URL}/SiteBackground`
+    );
+    return response.data.map(bg => `${bg.url}`);
+  } catch (error) {
+    console.error('Error fetching background images:', error);
+    throw new Error('Failed to fetch background images.');
   }
 };

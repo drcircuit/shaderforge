@@ -16,5 +16,7 @@ namespace ShaderForge.API.Data.DTO
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public string CreatedBy { get; set; }
+        public string Thumbnail { get; set; }
+        public bool IsPublic { get; set; }
     }
 }

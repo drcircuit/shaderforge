@@ -6,13 +6,16 @@
     "serve": "CHOKIDAR_USEPOLLING=true vue-cli-service serve",
     "build": "vue-cli-service build",
     "test:unit": "vue-cli-service test:unit",
-    "lint": "vue-cli-service lint"
+    "lint": "vue-cli-service lint",
+    "debug": "CHOKIDAR_USEPOLLING=true vue-cli-service serve --inspect"
   },
-  "type": "module",
   "dependencies": {
     "axios": "^1.7.9",
     "core-js": "^3.8.3",
+    "monaco-editor": "^0.45.0",
+    "monaco-editor-webpack-plugin": "^7.1.0",
     "register-service-worker": "^1.7.2",
+    "shaderforge-lib": "^0.1.6",
     "vue": "^3.2.13",
     "vue-router": "^4.0.3",
     "vuetify": "^3.7.11"

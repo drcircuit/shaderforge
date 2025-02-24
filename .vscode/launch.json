@@ -4,6 +4,10 @@
       {
         "name": "Launch All",
         "configurations": ["Launch API", "Launch UI"]
+      },
+      {
+        "name": "Full Stack: Frontend + Backend",
+        "configurations": ["Launch .NET Backend", "Launch Vue Frontend"]
       }
     ],
     "configurations": [
@@ -47,7 +51,34 @@
         "timeout": 10000,
         "sourceMaps": true,
         "outFiles": ["${workspaceFolder}/shaderforge.ui/dist/**/*.js"]
+      },
+      {
+        "name": "Launch Vue Frontend",
+        "type": "chrome",
+        "request": "launch",
+        "url": "http://localhost:8080",
+        "webRoot": "${workspaceFolder}/shaderforge.ui",
+        "sourceMapPathOverrides": {
+          "webpack:///src/*": "${webRoot}/src/*"
+        },
+        "preLaunchTask": "start-frontend"
+      },
+      {
+        "name": "Launch .NET Backend",
+        "type": "coreclr",
+        "request": "launch",
+        "program": "${workspaceFolder}/ShaderForge.API/bin/Debug/net8.0/ShaderForge.API.dll",
+        "args": [],
+        "cwd": "${workspaceFolder}/ShaderForge.API",
+        "stopAtEntry": false,
+        "serverReadyAction": {
+          "action": "openExternally",
+          "pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+          "uriFormat": "%s/swagger"
+        },
+        "env": {
+          "ASPNETCORE_ENVIRONMENT": "Development"
+        }
       }
     ]
   }
-  
