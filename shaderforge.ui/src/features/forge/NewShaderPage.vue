@@ -26,6 +26,10 @@
             />
           </div>
         </div>
+        <div class="shortcut-hints">
+          <span>Ctrl+R: Recompile Shader</span>
+          <span>Ctrl+E: Toggle Play/Stop</span>
+        </div>
       </div>
 
       <!-- Preview section -->
@@ -137,6 +141,7 @@ const fragmentShaderCode = ref(DefaultFragmentShader);
 const previewCanvas = ref<HTMLCanvasElement | null>(null);
 const previewContainer = ref<HTMLDivElement | null>(null);
 const assets = ref<any[]>([]);
+const isPlaying = ref(true);
 
 // Shaderforge component instance
 let shaderforge: ShaderforgeComponent | null = null;
@@ -166,35 +171,51 @@ onMounted(async () => {
       console.error('Failed to load initial shaders:', error);
     }
   }
-});
 
-// Watch for shader code changes
-watch([vertexShaderCode, fragmentShaderCode], async () => {
-  if (shaderforge) {
-    try {
-      await shaderforge.reloadEffect();
-    } catch (error) {
-      console.error('Failed to update shaders:', error);
-    }
-  }
-});
-
-// Watch for vertex shader type changes
-watch(vertexShaderType, () => {
-  if (!advancedMode.value) {
-    switch (vertexShaderType.value) {
-      case 'quad':
-        vertexShaderCode.value = DefaultVertexShader;
-        break;
-      // Add other vertex shader templates when available
-    }
-  }
+  // Add keyboard shortcuts
+  window.addEventListener('keydown', handleKeyDown);
 });
 
 onBeforeUnmount(() => {
   // Clean up shaderforge instance if necessary
   shaderforge = null;
+  window.removeEventListener('keydown', handleKeyDown);
 });
+
+// Handle keyboard shortcuts
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (event.ctrlKey && event.key === 'r') {
+    event.preventDefault();
+    recompileShader();
+  } else if (event.ctrlKey && event.key === 'e') {
+    event.preventDefault();
+    togglePlayStop();
+  }
+};
+
+// Recompile shader
+const recompileShader = async () => {
+  if (shaderforge) {
+    try {
+      await shaderforge.setShaders(vertexShaderCode.value, fragmentShaderCode.value);
+      await shaderforge.reloadEffect();
+    } catch (error) {
+      console.error('Failed to recompile shaders:', error);
+    }
+  }
+};
+
+// Toggle play/stop
+const togglePlayStop = () => {
+  isPlaying.value = !isPlaying.value;
+  if (shaderforge) {
+    if (isPlaying.value) {
+      //shaderforge.start();
+    } else {
+      //shaderforge.stop();
+    }
+  }
+};
 
 // Asset handling
 const getAssetIcon = (type: string) => {
@@ -289,6 +310,20 @@ const saveShader = async () => {
   left: 0;
   width: 100%;
   height: 100%;
+}
+
+.shortcut-hints {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 /* Responsive design */

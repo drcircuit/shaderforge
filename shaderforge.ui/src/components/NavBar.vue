@@ -15,15 +15,13 @@
       </v-toolbar-title>
 
       <!-- Navigation Links for Desktop -->
-      <v-row class="d-none d-md-flex">
-        <v-col>
-          <v-btn text to="/" class="sgi-link">Home</v-btn>
-          <v-btn text to="/newly-forged" class="sgi-link">Newly Forged</v-btn>
-          <v-btn text to="/top-shaders" class="sgi-link">Top Shaders</v-btn>
-          <v-btn text to="/tutorials" class="sgi-link">Tutorials</v-btn>
-          <v-btn text to="/articles" class="sgi-link">Articles</v-btn>
-        </v-col>
-      </v-row>
+      <div class="nav-links d-none d-md-flex">
+        <v-btn text to="/" class="sgi-link">Home</v-btn>
+        <v-btn text to="/newly-forged" class="sgi-link">Newly Forged</v-btn>
+        <v-btn text to="/top-shaders" class="sgi-link">Top Shaders</v-btn>
+        <v-btn text to="/tutorials" class="sgi-link">Tutorials</v-btn>
+        <v-btn text to="/articles" class="sgi-link">Articles</v-btn>
+      </div>
 
       <v-spacer class="d-none d-md-flex"></v-spacer>
 
@@ -182,8 +180,8 @@ const drawer = ref(false);
 
 /* Adjust search field width */
 .search-field {
-  max-width: 600px; /* Increased from 500px */
-  min-width: 500px; /* Increased from 400px */
+    max-width: 1200px; /* Increased width */
+  min-width: 1000px; /* Increased width */
   margin-right: 16px;
   display: flex;
   align-items: center;
@@ -247,5 +245,10 @@ const drawer = ref(false);
 .register-btn:hover {
   color: #9b59b6 !important;
   background: rgba(155, 89, 182, 0.1);
+}
+
+.nav-links {
+  display: flex;
+  gap: 1rem;
 }
 </style>
