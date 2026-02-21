@@ -1,21 +1,41 @@
 {
-  "name": "@shaderforge/webgpu-shader-engine",
-  "version": "0.1.0",
-  "description": "WebGPU shader engine for real-time shader preview",
+  "name": "@shaderforge/engine",
+  "version": "0.2.0",
+  "description": "Zero-boilerplate WebGPU shader engine with tracker sync for ShaderForge and beyond",
+  "type": "module",
   "main": "dist/index.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
-    "test": "jest",
+    "test": "node --experimental-vm-modules node_modules/.bin/jest",
     "prepublish": "npm run build"
   },
+  "keywords": [
+    "webgpu",
+    "wgsl",
+    "shader",
+    "demoscene",
+    "tracker",
+    "creative-coding"
+  ],
   "peerDependencies": {
     "@webgpu/types": "^0.1.40"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "jest": "^29.0.0",
     "@types/jest": "^29.0.0",
-    "@webgpu/types": "^0.1.40"
+    "@webgpu/types": "^0.1.40",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.0.0"
   }
 }
