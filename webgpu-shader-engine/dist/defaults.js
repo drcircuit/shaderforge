@@ -5,7 +5,6 @@
  * every shader so that `uniforms.time`, `uniforms.beat`, etc. are always
  * available without the author having to declare them.
  */
-
 /** WGSL struct declaration injected at the top of every shader. */
 export const BUILTIN_UNIFORMS_WGSL = /* wgsl */ `
 struct BuiltinUniforms {
@@ -22,7 +21,6 @@ struct BuiltinUniforms {
 }
 @group(0) @binding(0) var<uniform> uniforms : BuiltinUniforms;
 `;
-
 /**
  * Default fullscreen-quad vertex shader.
  * Produces a clip-space triangle pair that covers the entire viewport.
@@ -41,7 +39,6 @@ fn main(@builtin(vertex_index) vertexIndex : u32) -> @builtin(position) vec4f {
   return vec4f(pos[vertexIndex], 0.0, 1.0);
 }
 `;
-
 /**
  * WGSL channel binding declarations — injected before user shader code in
  * every RenderPass and PostFxPass.
@@ -65,7 +62,6 @@ export const CHANNEL_BINDINGS_WGSL = /* wgsl */ `
 @group(0) @binding(7) var iChannel3        : texture_2d<f32>;
 @group(0) @binding(8) var iChannel3Sampler : sampler;
 `;
-
 export const DEFAULT_FRAGMENT_WGSL = /* wgsl */ `
 ${BUILTIN_UNIFORMS_WGSL}
 
@@ -77,4 +73,4 @@ fn main(@builtin(position) fragCoord : vec4f) -> @location(0) vec4f {
   return vec4f(col * pulse, 1.0);
 }
 `;
-
+//# sourceMappingURL=defaults.js.map

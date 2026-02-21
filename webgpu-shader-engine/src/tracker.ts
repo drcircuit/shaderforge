@@ -236,6 +236,10 @@ export class Tracker {
     return this;
   }
 
+  getBPM(): number {
+    return this.clock.getBPM();
+  }
+
   /** Get the current interpolated value for a named track at the current playhead position. */
   getValue(name: string): number {
     return this.tracks.get(name)?.getValue(this.currentRow) ?? 0;

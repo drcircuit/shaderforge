@@ -150,14 +150,72 @@ The central design principle is **zero GPU boilerplate**. A web developer should
 
 ---
 
-### M5 — Scene View + Multi-Pass _(ShaderLabDX12 Scene View)_
+### M5 — Scene View + Multi-Pass Layer Stack _(ShaderLabDX12 scene + postFxChain)_
 
-> Buffer passes and post-processing chains, mirroring DX12's pixel buffer passes.
+> Mirrors ShaderLabDX12's **Scene** + **postFxChain** model exactly, implemented in `@shaderforge/engine`.
 
-- Up to 4 off-screen buffer passes (render-to-texture), each with its own shader
-- Final composite pass reads buffer textures via `@group(0) @binding(1..4)`
-- Pass dependency graph displayed in the Scene View panel
-- Live preview shows the composited result
+#### How the stack works
+
+Each **scene** (named `RenderPass`) renders to its own off-screen `GPUTexture`.
+A later pass can bind earlier scenes' textures as `iChannel0..3` — the WGSL equivalent of ShaderLabDX12's `TextureBinding` with `bindingType = Scene`.
+
+**Post-FX passes** sit at the end and use a ping-pong pair of textures:
+the output of pass N becomes `iChannel0` of pass N+1.
+The final pass renders directly to the canvas swap-chain view.
+
+```
+ShaderLabDX12                    @shaderforge/engine (WGSL)
+─────────────────────────────    ──────────────────────────────────────────
+Scene                        →   LayerStack.scene({ name, fragmentShader })
+Scene.bindings (sourceScene) →   channels: [{ channel: 0, source: 'name' }]
+iChannel0..7 (HLSL t0..t7)   →   iChannel0..3  (@group(0) @binding(1..8))
+Scene.postFxChain[]          →   LayerStack.postFx(fragmentShader) (chained)
+postFxTextureA / B           →   pingTex / pongTex  (internal ping-pong)
+PreviewRenderer.Render()     →   LayerStack.render(encoder, canvasView, ub)
+```
+
+The entire chain: `scene₀→tex₀` → `scene₁ reads tex₀ via iChannel0 → tex₁` →
+`postFx₀ reads tex₁ → ping` → `postFx₁ reads ping → canvas`.
+
+#### `LayerStack` example
+
+```ts
+import { LayerStack, createEffect } from '@shaderforge/engine';
+
+// Scene 1 — plasma base layer
+const baseWGSL = `
+@fragment fn main(@builtin(position) pos: vec4f) -> @location(0) vec4f {
+  let uv = pos.xy / uniforms.resolution;
+  return vec4f(0.5 + 0.5*sin(uniforms.time + uv.xyx*6.0 + vec3f(0,2,4)), 1.0);
+}`;
+
+// Scene 2 — reads the base layer via iChannel0 and adds a feedback trail
+const trailWGSL = `
+@fragment fn main(@builtin(position) pos: vec4f) -> @location(0) vec4f {
+  let uv  = pos.xy / uniforms.resolution;
+  let cur = textureSample(iChannel0, iChannel0Sampler, uv);
+  return mix(cur, vec4f(uv, 0.5, 1.0), 0.05);
+}`;
+
+// Post-FX 1 — radial vignette applied on top of the final scene output
+const vignetteWGSL = `
+@fragment fn main(@builtin(position) pos: vec4f) -> @location(0) vec4f {
+  let uv   = pos.xy / uniforms.resolution;
+  let col  = textureSample(iChannel0, iChannel0Sampler, uv);
+  let d    = length(uv - 0.5) * 1.6;
+  return vec4f(col.rgb * (1.0 - d*d), 1.0);
+}`;
+
+const stack = new LayerStack()
+  .scene({ name: 'base',   fragmentShader: baseWGSL })
+  .scene({ name: 'trails', fragmentShader: trailWGSL,
+           channels: [{ channel: 0, source: 'base' }] })
+  .postFx(vignetteWGSL);   // iChannel0 = output of 'trails'
+
+const effect = await createEffect(canvas, undefined, { layerStack: stack });
+effect.play();
+```
+
 
 ---
 
@@ -262,9 +320,10 @@ shaderforge/
 └── webgpu-shader-engine/         # @shaderforge/engine NPM package
     ├── src/
     │   ├── index.ts              # ShaderEffect, createEffect — public API
+    │   ├── passes.ts             # LayerStack, RenderPass, PostFx ping-pong
     │   ├── tracker.ts            # BeatClock, Tracker, Playlist
-    │   ├── uniforms.ts           # UniformBuffer (auto-padded)
-    │   └── defaults.ts           # Built-in WGSL shaders + uniform struct
+    │   ├── uniforms.ts           # UniformBuffer (auto-padded, beat uniforms)
+    │   └── defaults.ts           # Built-in WGSL shaders + uniform/channel structs
     ├── package.json
     └── tsconfig.json
 ```

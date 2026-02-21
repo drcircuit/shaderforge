@@ -1,18 +1,19 @@
 /**
  * @shaderforge/engine
  *
- * Zero-boilerplate WebGPU shader engine with beat-clock tracker sync.
+ * Zero-boilerplate WebGPU shader engine with beat-clock tracker sync and a
+ * scene/post-FX layer stack — the browser counterpart to ShaderLabDX12.
  *
- * The entire WebGPU surface (adapter, device, swap-chain, bind-group layout,
- * render pipeline, uniform buffers, resize observers) is managed internally.
- * Callers only see a clean, high-level API.
+ * Hidden from callers: adapter, device, swap-chain, bind-group layouts,
+ * render pipelines, uniform buffers, resize observers, ping-pong textures.
  *
- * Mirrors the feature set of ShaderLabDX12:
- *   - Fullscreen-quad rendering with auto-injected built-in uniforms
+ * Feature parity with ShaderLabDX12:
+ *   - Fullscreen-quad rendering with auto-injected BuiltinUniforms
  *   - BeatClock: BPM-synced quarter/eighth/sixteenth/bar counters + phases
  *   - Tracker timeline: keyframe-animated values bound to shader uniforms
- *   - Multi-pass support: render-to-texture "buffer passes" (M3+)
- *   - Playlist: beat-anchored scene sequencing (M4+)
+ *   - LayerStack: scene + post-FX chain where each layer samples the previous
+ *     via iChannel0..3 (mirrors Scene.bindings + Scene.postFxChain)
+ *   - Playlist: beat-anchored scene sequencing (M4)
  */
 
 export { BeatClock, Tracker, Playlist } from './tracker.js';
@@ -23,12 +24,23 @@ export type {
   TrackerOptions,
   PlaylistEntry,
 } from './tracker.js';
-export { DEFAULT_VERTEX_WGSL, DEFAULT_FRAGMENT_WGSL, BUILTIN_UNIFORMS_WGSL } from './defaults.js';
+
+export { LayerStack } from './passes.js';
+export type { ChannelInput, SceneDescriptor } from './passes.js';
+
+export {
+  DEFAULT_VERTEX_WGSL,
+  DEFAULT_FRAGMENT_WGSL,
+  BUILTIN_UNIFORMS_WGSL,
+  CHANNEL_BINDINGS_WGSL,
+} from './defaults.js';
+
 export { UniformBuffer, BUILTIN_BUFFER_SIZE } from './uniforms.js';
 
 import { DEFAULT_VERTEX_WGSL, DEFAULT_FRAGMENT_WGSL } from './defaults.js';
 import { UniformBuffer } from './uniforms.js';
 import { Tracker } from './tracker.js';
+import { LayerStack } from './passes.js';
 import type { BeatClockState } from './tracker.js';
 
 // ---------------------------------------------------------------------------
@@ -37,23 +49,26 @@ import type { BeatClockState } from './tracker.js';
 
 export interface ShaderEffectOptions {
   /**
-   * A Tracker instance to drive BPM uniforms and timeline values
-   * automatically each frame.
+   * A Tracker instance to drive BPM uniforms and timeline values each frame.
    */
   tracker?: Tracker;
   /**
+   * A LayerStack describing a multi-scene + post-FX rendering pipeline.
+   * When provided, the `compile()` method is unused — the stack owns all shaders.
+   */
+  layerStack?: LayerStack;
+  /**
    * Called once per frame after uniforms are updated but before the draw call.
-   * Use this hook to push custom uniform values or read tracker state.
    */
   onFrame?: (state: FrameState) => void;
 }
 
 export interface FrameState {
-  /** Seconds since the effect started playing. */
+  /** Seconds elapsed since `play()` was first called (pauses excluded). */
   time: number;
-  /** Frame index (starts at 0). */
+  /** Frame index starting at 0. */
   frame: number;
-  /** Current beat-clock state. Populated only when a Tracker is attached. */
+  /** Current beat-clock state, or null when no Tracker is attached. */
   beat: BeatClockState | null;
   /** The Tracker instance, if one was provided. */
   tracker: Tracker | null;
@@ -61,7 +76,7 @@ export interface FrameState {
 
 export interface CompileResult {
   ok: boolean;
-  /** Populated when `ok` is false. */
+  /** Error message, populated when `ok` is false. */
   error?: string;
 }
 
@@ -70,13 +85,22 @@ export interface CompileResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Core rendering component. Attach to any `<canvas>` element and start
- * rendering immediately with as little as two lines of code.
+ * Core rendering component.
  *
- * @example
+ * **Single-pass (simple)**
  * ```ts
  * const effect = await ShaderEffect.create(canvas);
  * await effect.compile(myFragmentWGSL);
+ * effect.play();
+ * ```
+ *
+ * **Multi-pass with layer stack (mirrors ShaderLabDX12 scene chain)**
+ * ```ts
+ * const stack = new LayerStack()
+ *   .scene({ name: 'base', fragmentShader: baseWGSL })
+ *   .postFx(bloomWGSL);   // iChannel0 = output of 'base'
+ *
+ * const effect = await ShaderEffect.create(canvas, { layerStack: stack });
  * effect.play();
  * ```
  */
@@ -84,36 +108,41 @@ export class ShaderEffect {
   private device!: GPUDevice;
   private context!: GPUCanvasContext;
   private format!: GPUTextureFormat;
+
+  // --- single-pass resources (null when layerStack is used) ---
   private pipeline: GPURenderPipeline | null = null;
   private bindGroupLayout!: GPUBindGroupLayout;
   private bindGroup: GPUBindGroup | null = null;
+
   private uniforms!: UniformBuffer;
 
   private readonly canvas: HTMLCanvasElement;
   private readonly tracker: Tracker | null;
-  private readonly onFrame: ((s: FrameState) => void) | null;
+  private readonly layerStack: LayerStack | null;
+  private readonly onFrameCb: ((s: FrameState) => void) | null;
 
-  private rafId = 0;
-  private startTime = 0;
+  // Timing — tracked as wall-clock elapsed to avoid drift across pause/resume
+  private elapsedMs = 0;
+  private lastFrameTime = 0;
   private frameCount = 0;
+  private rafId = 0;
   private _playing = false;
+
   private resizeObserver: ResizeObserver | null = null;
 
-  private constructor(
-    canvas: HTMLCanvasElement,
-    options: ShaderEffectOptions,
-  ) {
+  private constructor(canvas: HTMLCanvasElement, options: ShaderEffectOptions) {
     this.canvas = canvas;
     this.tracker = options.tracker ?? null;
-    this.onFrame = options.onFrame ?? null;
+    this.layerStack = options.layerStack ?? null;
+    this.onFrameCb = options.onFrame ?? null;
   }
 
   // -------------------------------------------------------------------------
-  // Factory (async GPU init)
+  // Factory
   // -------------------------------------------------------------------------
 
   /**
-   * Create a ShaderEffect bound to `canvas` and initialise the WebGPU context.
+   * Create a `ShaderEffect` bound to `canvas` and initialise the WebGPU context.
    * Throws if WebGPU is unavailable or no suitable adapter is found.
    */
   static async create(
@@ -123,7 +152,6 @@ export class ShaderEffect {
     if (!navigator.gpu) {
       throw new Error('@shaderforge/engine: WebGPU is not supported in this browser.');
     }
-
     const adapter = await navigator.gpu.requestAdapter();
     if (!adapter) {
       throw new Error('@shaderforge/engine: No suitable GPUAdapter found.');
@@ -146,9 +174,9 @@ export class ShaderEffect {
 
     this.uniforms = new UniformBuffer(this.device);
 
-    // Bind group layout — binding 0 is always the built-in uniform buffer.
+    // Bind group layout for the single-pass path (uniform buffer only)
     this.bindGroupLayout = this.device.createBindGroupLayout({
-      label: 'shaderforge:bgl',
+      label: 'sf:bgl',
       entries: [{
         binding: 0,
         visibility: GPUShaderStage.FRAGMENT | GPUShaderStage.VERTEX,
@@ -156,29 +184,30 @@ export class ShaderEffect {
       }],
     });
 
-    // Observe canvas resize and update the uniform resolution automatically.
     this.resizeObserver = new ResizeObserver(() => this._onResize());
     this.resizeObserver.observe(this.canvas);
+    this.canvas.addEventListener('pointermove', this._onPointer);
     this._onResize();
 
-    // Track mouse position.
-    this.canvas.addEventListener('pointermove', this._onPointer);
-
-    // Compile with the default shaders so the canvas is immediately live.
-    await this.compile(DEFAULT_FRAGMENT_WGSL, DEFAULT_VERTEX_WGSL);
+    if (this.layerStack) {
+      const w = this.canvas.width;
+      const h = this.canvas.height;
+      await this.layerStack.compile(this.device, this.format, this.uniforms, w, h);
+    } else {
+      // Compile the default shader so the canvas is live immediately
+      await this.compile(DEFAULT_FRAGMENT_WGSL, DEFAULT_VERTEX_WGSL);
+    }
   }
 
   // -------------------------------------------------------------------------
-  // Shader compilation
+  // Single-pass shader compilation
   // -------------------------------------------------------------------------
 
   /**
-   * Compile new WGSL shaders and hot-swap the render pipeline.
-   * The `BuiltinUniforms` struct is prepended automatically — do NOT declare it
-   * again inside your shader source.
+   * Compile new WGSL shaders and hot-swap the single-pass render pipeline.
+   * Not used when a `LayerStack` was provided at creation time.
    *
-   * @param fragmentShader  WGSL fragment shader source (without uniform struct).
-   * @param vertexShader    Optional WGSL vertex shader. Defaults to fullscreen quad.
+   * The `BuiltinUniforms` struct is prepended automatically.
    */
   async compile(
     fragmentShader: string,
@@ -189,10 +218,8 @@ export class ShaderEffect {
       const fragModule = this.device.createShaderModule({ code: fragmentShader, label: 'sf:frag' });
 
       const pipeline = await this.device.createRenderPipelineAsync({
-        label: 'shaderforge:pipeline',
-        layout: this.device.createPipelineLayout({
-          bindGroupLayouts: [this.bindGroupLayout],
-        }),
+        label: 'sf:pipeline',
+        layout: this.device.createPipelineLayout({ bindGroupLayouts: [this.bindGroupLayout] }),
         vertex: { module: vertModule, entryPoint: 'main' },
         fragment: {
           module: fragModule,
@@ -204,7 +231,7 @@ export class ShaderEffect {
 
       this.pipeline = pipeline;
       this.bindGroup = this.device.createBindGroup({
-        label: 'shaderforge:bg',
+        label: 'sf:bg',
         layout: this.bindGroupLayout,
         entries: [{ binding: 0, resource: { buffer: this.uniforms.gpuBuffer } }],
       });
@@ -221,29 +248,31 @@ export class ShaderEffect {
   // Playback control
   // -------------------------------------------------------------------------
 
-  /** Start the render loop. */
+  /** Start the render loop. Resumes from the paused position if called after `pause()`. */
   play(): void {
     if (this._playing) return;
     this._playing = true;
-    this.startTime = performance.now() - this.frameCount * (1000 / 60);
+    this.lastFrameTime = performance.now();
     this.tracker?.play();
     this._loop();
   }
 
-  /** Pause the render loop. A single frame is still rendered to avoid a blank canvas. */
+  /** Pause the render loop, preserving the current playback position. */
   pause(): void {
+    if (!this._playing) return;
     this._playing = false;
+    this.elapsedMs += performance.now() - this.lastFrameTime;
     this.tracker?.pause();
     cancelAnimationFrame(this.rafId);
   }
 
-  /** Stop and reset to frame 0. */
+  /** Stop playback and reset to frame 0. */
   stop(): void {
     this._playing = false;
+    this.elapsedMs = 0;
+    this.frameCount = 0;
     this.tracker?.stop();
     cancelAnimationFrame(this.rafId);
-    this.frameCount = 0;
-    this.startTime = 0;
     this._renderFrame(0, null);
   }
 
@@ -253,11 +282,11 @@ export class ShaderEffect {
   // Cleanup
   // -------------------------------------------------------------------------
 
-  /** Release all GPU and DOM resources. */
   destroy(): void {
     this.pause();
     this.resizeObserver?.disconnect();
     this.canvas.removeEventListener('pointermove', this._onPointer);
+    this.layerStack?.destroy();
     this.uniforms.destroy();
     this.device.destroy();
   }
@@ -268,8 +297,9 @@ export class ShaderEffect {
 
   private _loop(): void {
     if (!this._playing) return;
-    this.rafId = requestAnimationFrame(() => {
-      const time = (performance.now() - this.startTime) / 1000;
+    this.rafId = requestAnimationFrame((now) => {
+      // Elapsed time is accumulated across pause/resume — no drift from assumed FPS
+      const time = (this.elapsedMs + (now - this.lastFrameTime)) / 1000;
       const beat = this.tracker ? this.tracker.tick() : null;
       this._renderFrame(time, beat);
       this._loop();
@@ -277,15 +307,13 @@ export class ShaderEffect {
   }
 
   private _renderFrame(time: number, beat: BeatClockState | null): void {
-    if (!this.pipeline || !this.bindGroup) return;
-
     // --- Update uniforms ---
     this.uniforms.setTime(time);
     this.uniforms.setFrame(this.frameCount);
 
-    if (beat) {
+    if (beat && this.tracker) {
       this.uniforms.setBeatUniforms(
-        this.tracker!.isPlaying || beat.beat > 0 ? (this.tracker as any).clock?.getBPM?.() ?? 120 : 120,
+        this.tracker.getBPM(),
         beat.beat,
         beat.barProgress,
         beat.quarterPhase,
@@ -297,28 +325,32 @@ export class ShaderEffect {
     this.uniforms.upload();
 
     // --- User hook ---
-    this.onFrame?.({
-      time,
-      frame: this.frameCount,
-      beat,
-      tracker: this.tracker,
-    });
+    this.onFrameCb?.({ time, frame: this.frameCount, beat, tracker: this.tracker });
 
     // --- GPU draw ---
     const encoder = this.device.createCommandEncoder({ label: 'sf:encoder' });
-    const pass = encoder.beginRenderPass({
-      colorAttachments: [{
-        view: this.context.getCurrentTexture().createView(),
-        loadOp: 'clear',
-        storeOp: 'store',
-        clearValue: { r: 0, g: 0, b: 0, a: 1 },
-      }],
-    });
+    const canvasView = this.context.getCurrentTexture().createView();
 
-    pass.setPipeline(this.pipeline);
-    pass.setBindGroup(0, this.bindGroup);
-    pass.draw(6); // two triangles (fullscreen quad)
-    pass.end();
+    if (this.layerStack) {
+      // Multi-pass: delegate entirely to the LayerStack
+      this.layerStack.render(encoder, canvasView, this.uniforms);
+    } else {
+      // Single-pass: use the compiled pipeline directly
+      if (this.pipeline && this.bindGroup) {
+        const pass = encoder.beginRenderPass({
+          colorAttachments: [{
+            view: canvasView,
+            loadOp: 'clear',
+            storeOp: 'store',
+            clearValue: { r: 0, g: 0, b: 0, a: 1 },
+          }],
+        });
+        pass.setPipeline(this.pipeline);
+        pass.setBindGroup(0, this.bindGroup);
+        pass.draw(6); // fullscreen quad: 2 triangles, 6 vertices
+        pass.end();
+      }
+    }
 
     this.device.queue.submit([encoder.finish()]);
     this.frameCount++;
@@ -331,6 +363,7 @@ export class ShaderEffect {
       this.canvas.width = w;
       this.canvas.height = h;
       this.uniforms.setResolution(w, h);
+      this.layerStack?.resize(this.uniforms, w, h);
     }
   }
 
@@ -346,12 +379,21 @@ export class ShaderEffect {
 
 /**
  * Create a `ShaderEffect`, optionally compile a fragment shader, and return
- * the ready-to-play instance.  This is the recommended entry point for most
- * use cases.
+ * the ready-to-play instance.
  *
- * @example
+ * @example Single-pass
  * ```ts
  * const effect = await createEffect(canvas, myFragmentWGSL);
+ * effect.play();
+ * ```
+ *
+ * @example Multi-pass layer stack
+ * ```ts
+ * const stack = new LayerStack()
+ *   .scene({ name: 'base', fragmentShader: baseWGSL })
+ *   .postFx(bloomWGSL);
+ *
+ * const effect = await createEffect(canvas, undefined, { layerStack: stack });
  * effect.play();
  * ```
  */
@@ -361,7 +403,7 @@ export async function createEffect(
   options: ShaderEffectOptions = {},
 ): Promise<ShaderEffect> {
   const effect = await ShaderEffect.create(canvas, options);
-  if (fragmentShader) {
+  if (fragmentShader && !options.layerStack) {
     const result = await effect.compile(fragmentShader);
     if (!result.ok) {
       throw new Error(`@shaderforge/engine: Shader compilation failed — ${result.error}`);
@@ -369,3 +411,4 @@ export async function createEffect(
   }
   return effect;
 }
+
