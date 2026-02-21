@@ -67,7 +67,7 @@ namespace ShaderForge.API.Controllers
             shader.Id = System.Guid.NewGuid().ToString();
             shader.CreatedAt = System.DateTime.Now;
             shader.UpdatedAt = System.DateTime.Now;
-            shader.IsPublic = false; // Default to private
+            shader.IsPublic = shader.Visibility == ShaderVisibility.Public;
             _shaderRepository.AddShader(shader);
             return CreatedAtAction(nameof(GetShaderById), new { id = shader.Id }, shader);
         }

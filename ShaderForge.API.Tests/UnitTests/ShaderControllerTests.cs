@@ -2,7 +2,7 @@ using Xunit;
 using FluentAssertions;
 using Moq;
 using ShaderForge.API.Data.Interfaces;
-using ShaderForge.API.Data.Models;
+using ShaderForge.API.Data.DTO;
 using ShaderForge.API.Controllers;
 using Microsoft.AspNetCore.Mvc;
 

@@ -67,6 +67,9 @@
         </div>
         <div ref="previewContainer" class="preview-container">
           <canvas ref="previewCanvas" class="preview-canvas"></canvas>
+          <div v-if="compileError" class="compile-error-overlay">
+            <pre>{{ compileError }}</pre>
+          </div>
         </div>
         
         <!-- Asset tray -->
@@ -125,10 +128,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import MonacoEditor from '@/components/MonacoEditor.vue';
 import { useRouter } from 'vue-router';
-import { DefaultFragmentShader, DefaultVertexShader, ShaderforgeComponent } from 'shaderforge-lib';
+import { ShaderEffect, DEFAULT_FRAGMENT_WGSL, DEFAULT_VERTEX_WGSL } from '@shaderforge/engine';
 
 // State
 const shaderTitle = ref('');
@@ -136,15 +139,15 @@ const shaderDescription = ref('');
 const isPrivate = ref(false);
 const vertexShaderType = ref('quad');
 const advancedMode = ref(false);
-const vertexShaderCode = ref(DefaultVertexShader);
-const fragmentShaderCode = ref(DefaultFragmentShader);
+const vertexShaderCode = ref(DEFAULT_VERTEX_WGSL);
+const fragmentShaderCode = ref(DEFAULT_FRAGMENT_WGSL);
 const previewCanvas = ref<HTMLCanvasElement | null>(null);
-const previewContainer = ref<HTMLDivElement | null>(null);
 const assets = ref<any[]>([]);
 const isPlaying = ref(true);
+const compileError = ref<string | null>(null);
 
-// Shaderforge component instance
-let shaderforge: ShaderforgeComponent | null = null;
+// ShaderEffect instance
+let effect: ShaderEffect | null = null;
 
 // Editor configuration
 const editorOptions = {
@@ -158,27 +161,29 @@ const editorOptions = {
   padding: { top: 16, bottom: 16 },
 };
 
-// Initialize ShaderForge
+// Initialize ShaderEffect
 onMounted(async () => {
-  if (previewContainer.value) {
-    shaderforge = new ShaderforgeComponent(previewContainer.value);
-    await shaderforge.initialize();
-
-    // Set initial shader code
+  if (previewCanvas.value) {
     try {
-      await shaderforge.setShaders(DefaultVertexShader, DefaultFragmentShader);
+      effect = await ShaderEffect.create(previewCanvas.value);
+      const result = await effect.compile(DEFAULT_FRAGMENT_WGSL);
+      if (!result.ok) {
+        compileError.value = result.error ?? 'Unknown compile error';
+      } else {
+        compileError.value = null;
+        effect.play();
+      }
     } catch (error) {
-      console.error('Failed to load initial shaders:', error);
+      console.error('Failed to initialize ShaderEffect:', error);
     }
   }
 
-  // Add keyboard shortcuts
   window.addEventListener('keydown', handleKeyDown);
 });
 
 onBeforeUnmount(() => {
-  // Clean up shaderforge instance if necessary
-  shaderforge = null;
+  effect?.destroy();
+  effect = null;
   window.removeEventListener('keydown', handleKeyDown);
 });
 
@@ -193,28 +198,27 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
 };
 
-// Recompile shader
+// Recompile shader (fragment first, vertex second — matches ShaderEffect.compile signature)
 const recompileShader = async () => {
-  if (shaderforge) {
+  if (effect) {
     try {
-      await shaderforge.setShaders(vertexShaderCode.value, fragmentShaderCode.value);
-      await shaderforge.reloadEffect();
+      const result = await effect.compile(fragmentShaderCode.value, vertexShaderCode.value);
+      compileError.value = result.ok ? null : (result.error ?? 'Unknown compile error');
     } catch (error) {
-      console.error('Failed to recompile shaders:', error);
+      compileError.value = String(error);
     }
   }
 };
 
 // Toggle play/stop
 const togglePlayStop = () => {
-  isPlaying.value = !isPlaying.value;
-  if (shaderforge) {
-    if (isPlaying.value) {
-      //shaderforge.start();
-    } else {
-      //shaderforge.stop();
-    }
+  if (!effect) return;
+  if (isPlaying.value) {
+    effect.pause();
+  } else {
+    effect.play();
   }
+  isPlaying.value = !isPlaying.value;
 };
 
 // Asset handling
@@ -243,7 +247,6 @@ const saveShader = async () => {
       console.error('Failed to save shader:', error);
     }
   } else {
-    // Save to local storage
     const shader = {
       id: crypto.randomUUID(),
       title: shaderTitle.value,
@@ -256,9 +259,6 @@ const saveShader = async () => {
     const localShaders = JSON.parse(localStorage.getItem('localShaders') || '[]');
     localShaders.push(shader);
     localStorage.setItem('localShaders', JSON.stringify(localShaders));
-
-    // Show success message
-    // TODO: Add success notification
   }
 };
 </script>
@@ -310,6 +310,23 @@ const saveShader = async () => {
   left: 0;
   width: 100%;
   height: 100%;
+}
+
+.compile-error-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(200, 0, 0, 0.85);
+  color: #fff;
+  font-family: monospace;
+  font-size: 0.75rem;
+  padding: 8px 12px;
+  max-height: 40%;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  z-index: 10;
 }
 
 .shortcut-hints {
