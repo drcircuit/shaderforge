@@ -1,31 +1,26 @@
 # ShaderForge
 
-> A web-based community platform for creating, sharing, and discovering real-time WebGPU shader effects — inspired by the demoscene and the creative coding tradition.
+> A web-based community platform for creating, sharing, and discovering real-time WebGPU shader effects — the browser counterpart to ShaderLabDX12, with demoscene DNA.
 
 ---
 
 ## Inspirations
 
 | Project | What we borrow |
-|---------|---------------|
-| **[ShaderToy](https://www.shadertoy.com)** (Inigo Quilez / Pol Jeremias) | Fragment-shader-first editor, community gallery, forking, built-in uniforms (`iTime`, `iResolution`, `iMouse`) |
-| **ShaderLab DX12** (drcircuit) | Desktop demo-tool UX, tracker-synced animation timeline, multi-pass pipeline, audio-reactive uniforms |
-| **Demoscene** — Revision, Assembly, pouet.net | 64k/4k effect aesthetics, BPM-synced demos, procedural geometry, signed-distance functions |
-| **Notable demosceners** | Inigo Quilez (ray marching, SDFs), Evvvvil (Pouet), Blackle (size-coding), Mercury, Fairlight, Farbrausch |
+|---------|----------------|
+| **[ShaderToy](https://www.shadertoy.com)** (Inigo Quilez / Pol Jeremias) | Fragment-shader-first editor, community gallery, forking, built-in uniforms (`iTime`, `iResolution`, `iMouse`), multi-pass buffer channels |
+| **[ShaderLabDX12](https://github.com/drcircuit/ShaderLabDX12)** (drcircuit) | BPM-synced BeatClock, tracker timeline, playlist/scene sequencing, multi-pass pixel buffers, three-panel editor layout (Demo View / Scene View / Effect View), project JSON serialisation, dark cyberpunk aesthetic |
+| **Demoscene** — Revision, Assembly, Evoke, pouet.net | 64k/4k size-coding philosophy, BPM-synced intros, procedural geometry, signed-distance functions |
+| **Notable demosceners** | Inigo Quilez (ray marching, SDFs), Evvvvil (Pouet compo veteran), Blackle (extreme size-coding), groups Mercury, Fairlight, Farbrausch |
+| **Tracker tools** | GNU Rocket, Renoise, Buzz — row-based keyframe animation synced to music |
 
 ---
 
 ## Vision
 
-ShaderForge is a **browser-first creative coding platform** where artists, game developers, and demosceners can:
+ShaderForge is the **browser-native version of ShaderLabDX12**. It targets the same creative use-case — building beat-synced demo effects — but adds a community layer so anyone can register, share, and fork shaders.
 
-- Write WebGPU (WGSL) fragment and vertex shaders directly in the browser
-- Preview effects in real-time with a zero-friction editor
-- Sync shader parameters to music using a built-in demoscene-style **tracker**
-- Share, fork, and comment on community shaders
-- Embed live previews anywhere via an `<iframe>` or the `@shaderforge/engine` NPM package
-
-The central design principle is **zero GPU boilerplate**. A web developer should be able to render a fully animated shader in fewer than ten lines of JavaScript without knowing anything about swap chains, bind group layouts, buffer padding, or pipeline descriptors.
+The central design principle is **zero GPU boilerplate**. A web developer should be able to render a fully animated, beat-synced WebGPU shader in ten lines of TypeScript, with no knowledge of swap-chains, bind-group layouts, buffer padding, or pipeline descriptors.
 
 ---
 
@@ -34,8 +29,10 @@ The central design principle is **zero GPU boilerplate**. A web developer should
 ```
 ┌─────────────────────────────────────────────────────┐
 │                   shaderforge.ui                     │
-│  Vue 3 + Vuetify · editor · gallery · community      │
-│  uses @shaderforge/engine for live preview           │
+│  Vue 3 + Vuetify · Three-panel editor                │
+│  Demo View | Scene View | Effect View                │
+│  Community gallery · user profiles · comments        │
+│  Powered by @shaderforge/engine for live preview     │
 └────────────────────┬────────────────────────────────┘
                      │ REST / WebSocket
 ┌────────────────────▼────────────────────────────────┐
@@ -45,11 +42,30 @@ The central design principle is **zero GPU boilerplate**. A web developer should
 
 ┌─────────────────────────────────────────────────────┐
 │              @shaderforge/engine  (NPM)              │
-│  ShaderEffect · Tracker · UniformBuffer              │
-│  Pure TypeScript · zero runtime dependencies         │
+│  ShaderEffect · BeatClock · Tracker · Playlist       │
+│  UniformBuffer (auto-padded) · multi-pass buffers    │
+│  Pure TypeScript ESM · zero runtime dependencies     │
 │  Works in any framework (or vanilla JS)              │
 └─────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Feature Parity with ShaderLabDX12
+
+| ShaderLabDX12 (C++ / DX12) | ShaderForge web equivalent |
+|---------------------------|---------------------------|
+| `AudioSystem` — load WAV/MP3/OGG, playback | Browser `<audio>` / Web Audio API, BPM input |
+| `BeatClock` — quarter/eighth/sixteenth/bar counts + phase values | `BeatClock` class in `@shaderforge/engine` (TypeScript port) |
+| Tracker timeline — row-based keyframe animation | `Tracker` class with `linear` / `smooth` / `constant` interpolation |
+| Playlist — beat-anchored scene transitions | `Playlist` class; `ShaderEffect` swaps pipeline per bar boundary |
+| Multi-pass rendering — pixel buffer passes | `ShaderEffect` buffer pass support (M3) |
+| HLSL live compilation via DXC | WGSL live compilation via WebGPU `createShaderModule` + error overlays |
+| Effect View — shader editor (ImGui) | Monaco editor with WGSL syntax highlighting and inline error annotations |
+| Demo View — timeline + transport | Tracker UI with row grid, BPM input, play/pause/stop transport |
+| Scene View — realtime preview | `<canvas>` preview panel driven by `@shaderforge/engine` |
+| Project serialisation (`project.json`) | JSON project format saved to API or `localStorage` |
+| Dark cyberpunk aesthetic (Hacked / Orbitron / Erbos Draco) | Audiowide + Oxanium fonts; cyan `#40c0ff` accent on `#020304` dark |
 
 ---
 
@@ -57,22 +73,37 @@ The central design principle is **zero GPU boilerplate**. A web developer should
 
 ### M1 — `@shaderforge/engine` NPM Package _(foundation)_
 
-> All WebGPU complexity lives here so that no other layer needs to touch the GPU API directly.
+> All WebGPU complexity lives here so no other layer needs to touch the GPU API directly.
 
-**Goals**
-- `ShaderEffect` class — compile WGSL, render to a `<canvas>`, auto-manage the render loop
-- Built-in uniforms auto-injected into every shader: `time`, `resolution`, `mouse`, `frame`
-- `setUniform(name, value)` — set any `f32 | vec2 | vec3 | vec4` uniform by name; padding is handled automatically
-- Fullscreen-quad vertex shader provided by default (users only write fragment shaders)
-- `Tracker` class — demoscene-style BPM timeline with keyframe interpolation; bind any track to a uniform
-- Asset channels — bind textures, cubemaps, and audio FFT data to numbered slots without manual bind groups
+**Implemented in `webgpu-shader-engine/`**
 
-**Non-goals (hidden complexity)**
-- No public `GPUDevice`, `GPUAdapter`, or `GPUCommandEncoder` in the public API
-- No manual buffer padding or `@align` annotations for users
+- `ShaderEffect` — compile WGSL, render to `<canvas>`, auto-manage the render loop
+  - Auto-injects `BuiltinUniforms` struct into every shader
+  - Built-in uniforms: `time`, `frame`, `resolution`, `mouse`
+  - `compile(fragmentWGSL, vertexWGSL?)` — hot-swap pipeline, `CompileResult` error type
+  - `play()` / `pause()` / `stop()`
+  - `ResizeObserver` keeps `resolution` in sync
+  - Pointer tracking keeps `mouse` in sync
+- `BeatClock` — TypeScript port of `src/audio/BeatClock.cpp`
+  - `setBPM(bpm)` / `setTimeSignature(beatsPerBar)`
+  - `update(audioTimeSeconds)` → `BeatClockState`
+  - Quarter, eighth, sixteenth counters and 0→1 phase values
+  - Per-frame hit flags: `hitQuarterNote`, `hitEighthNote`, `hitBar`
+- `Tracker` — keyframe timeline on a beat-row grid (inspired by GNU Rocket)
+  - `track(name, keyframes)` — add named track with typed keyframes
+  - Interpolation modes: `linear`, `smooth` (cubic ease), `constant`
+  - `play()` / `pause()` / `stop()` / `seekRow(row)`
+  - `getValue(name)` — current interpolated value
+  - `tick()` — advance one frame and return `BeatClockState`
+- Beat uniforms auto-pushed every frame: `bpm`, `beat`, `barProgress`, `quarterPhase`, `eighthPhase`, `sixteenthPhase`
+- `Playlist` — beat-anchored sequence of shaders (future M4 integration in `ShaderEffect`)
+- `UniformBuffer` — auto-padded GPU buffer, hides `@align` / struct padding rules
+- `createEffect(canvas, fragmentWGSL?, options?)` — convenience factory
+
+**Non-goals (hidden from callers)**
+- No public `GPUDevice`, `GPUAdapter`, or `GPUCommandEncoder`
+- No manual buffer padding or bind-group layout entries for users
 - No swap-chain configuration
-
-**Deliverable:** published `@shaderforge/engine` on npm; full TypeScript types; zero-dependency
 
 ---
 
@@ -80,88 +111,75 @@ The central design principle is **zero GPU boilerplate**. A web developer should
 
 > Persist and serve shaders, user profiles, comments, and thumbnails.
 
-**Goals**
-- Replace in-memory stores with a real database (PostgreSQL via Entity Framework Core)
+- Replace in-memory stores with PostgreSQL via Entity Framework Core
 - JWT authentication (`/api/auth/register`, `/api/auth/login`)
-- Shader CRUD with ownership and visibility (`public` / `private` / `unlisted`)
-- Thumbnail generation endpoint (server-side WebGPU or Playwright screenshot)
-- Rate-limiting and basic spam protection
+- Shader CRUD: ownership, visibility (`public` / `private` / `unlisted`)
+- Project JSON format matching ShaderLabDX12's `project.json` schema (shaders, tracker data, playlist, BPM)
+- Thumbnail generation endpoint (Playwright screenshot or server-side WebGPU)
+- Rate-limiting and spam protection
 - OpenAPI / Swagger documentation
 
-**Stretch**
-- WebSocket channel for live collaborative editing
-
 ---
 
-### M3 — Shader Editor _(frontend)_
+### M3 — Shader Editor — Effect View _(frontend)_
 
-> The core loop: write → compile → preview.
+> Mirrors ShaderLabDX12's **Effect View**: write → compile → preview.
 
-**Goals**
-- Monaco editor with WGSL syntax highlighting and inline error annotations
+- Monaco editor with WGSL syntax highlighting and inline error annotations (squiggles on GPU compile error line/column)
 - Live preview panel powered by `@shaderforge/engine`; recompiles on `Ctrl+R`
-- Shader metadata (title, description, tags, visibility)
+- Split layout: **Fragment** editor (always visible) + **Vertex** editor (advanced mode, like DX12)
+- Shader metadata (title, description, tags, visibility, BPM)
 - Asset tray: drag-and-drop textures/audio onto numbered channels
-- Save to profile (authenticated) or local storage (anonymous)
-- Forking an existing shader pre-loads its code into the editor
+- Save to profile (authenticated) or `localStorage` (anonymous)
+- Fork from existing shader → pre-loads code into editor
 
 ---
 
-### M4 — Tracker & Demo Sync _(demoscene DNA)_
+### M4 — Demo View + Tracker UI _(demoscene DNA)_
 
-> Bridge the gap between static shader art and time-synced demo effects.
+> Mirrors ShaderLabDX12's **Demo View**: the tracker timeline + transport controls.
 
-**Goals**
-- Visual tracker UI (rows × tracks, like Rocket / GNU Rocket)
-- BPM input and metronome playback
-- Per-track keyframes with selectable interpolation (linear, smooth-step, constant)
-- Bind any track to a named uniform in the active shader
-- Export/import tracker data as JSON alongside shader source
-- Audio upload: WAV/MP3 plays alongside the demo; beat detection assists BPM setting
+- Transport bar: `▶ Play` / `⏸ Pause` / `⏹ Stop` + BPM input + position display
+- Row-grid timeline showing all tracks as columns (rows = beat subdivisions)
+- Click/drag cells to set keyframe values; right-click to set interpolation type
+- Beat markers: bar lines, beat lines, sub-beat lines at configurable zoom
+- Bind any track to a named WGSL uniform (auto-listed from the active shader)
+- Audio upload: WAV/MP3; playback synced to tracker position
+- Beat detection to auto-suggest BPM from loaded audio
+- Export/import tracker data as JSON (stored in project JSON alongside shader source)
 
 ---
 
-### M5 — Community Platform _(social layer)_
+### M5 — Scene View + Multi-Pass _(ShaderLabDX12 Scene View)_
 
-> Discover and share.
+> Buffer passes and post-processing chains, mirroring DX12's pixel buffer passes.
 
-**Goals**
-- Public gallery with newest / highest-rated / trending feeds
-- User profiles with shader collections
+- Up to 4 off-screen buffer passes (render-to-texture), each with its own shader
+- Final composite pass reads buffer textures via `@group(0) @binding(1..4)`
+- Pass dependency graph displayed in the Scene View panel
+- Live preview shows the composited result
+
+---
+
+### M6 — Community Platform _(social layer)_
+
+- Public gallery: newest / highest-rated / trending feeds
+- User profiles with shader collections and demo reels
 - Comments and reactions on shaders
 - Featured shaders curated by admins on the front page
 - `<iframe>` embed code for every public shader
-- "Inspiration" credits linking back to source shaders when forking
+- "Inspiration" credits when forking (links back to source)
 
 ---
 
-## Project Structure
+## `@shaderforge/engine` Quick Start
 
-```
-shaderforge/
-├── ShaderForge.API/          # .NET 9 backend
-├── ShaderForge.API.Tests/    # xUnit tests for the API
-├── shaderforge.ui/           # Vue 3 frontend (Vite + Vuetify)
-├── webgpu-shader-engine/     # @shaderforge/engine NPM package
-│   ├── src/
-│   │   ├── index.ts          # Public API: ShaderEffect, Tracker, createEffect
-│   │   ├── defaults.ts       # Built-in WGSL shaders
-│   │   ├── uniforms.ts       # Auto-padded UniformBuffer
-│   │   └── tracker.ts        # BPM tracker / keyframe timeline
-│   ├── package.json
-│   └── tsconfig.json
-└── README.md
-```
-
----
-
-## Quick Start — `@shaderforge/engine`
+### Minimal example (fragment shader only)
 
 ```ts
 import { createEffect } from '@shaderforge/engine';
 
-// Render a shader on any <canvas> — no GPU setup required
-const effect = await createEffect(document.getElementById('canvas'), `
+const effect = await createEffect(document.getElementById('canvas') as HTMLCanvasElement, `
   @fragment
   fn main(@builtin(position) pos: vec4f) -> @location(0) vec4f {
     let uv  = pos.xy / uniforms.resolution;
@@ -173,20 +191,82 @@ const effect = await createEffect(document.getElementById('canvas'), `
 effect.play();
 ```
 
-### With tracker sync
+### Beat-synced effect with Tracker (mirrors ShaderLabDX12 demo flow)
 
 ```ts
 import { createEffect, Tracker } from '@shaderforge/engine';
 
-const tracker = new Tracker({ bpm: 140, rows: 512 });
-tracker.track('brightness', [
-  { row: 0,   value: 0.0, interpolation: 'linear' },
-  { row: 64,  value: 1.0, interpolation: 'smooth' },
-  { row: 128, value: 0.2, interpolation: 'constant' },
-]);
+// BPM-synced tracker with keyframe animation
+const tracker = new Tracker({ bpm: 140, rowsPerBeat: 4, beatsPerBar: 4 });
+tracker
+  .track('brightness', [
+    { row: 0,   value: 0.0, interpolation: 'linear'   },
+    { row: 16,  value: 1.0, interpolation: 'smooth'   },
+    { row: 32,  value: 0.2, interpolation: 'constant' },
+  ])
+  .track('hueShift', [
+    { row: 0,  value: 0.0 },
+    { row: 64, value: 6.28 },
+  ]);
 
-const effect = await createEffect(canvas, fragmentShaderSource, { tracker });
+const effect = await createEffect(canvas, `
+  @fragment
+  fn main(@builtin(position) pos: vec4f) -> @location(0) vec4f {
+    let uv     = pos.xy / uniforms.resolution;
+    // quarterPhase gives a snappy 0→1 pulse each beat
+    let flash  = pow(1.0 - uniforms.quarterPhase, 4.0);
+    let col    = 0.5 + 0.5 * cos(uniforms.time + uv.xyx + vec3f(0,2,4));
+    return vec4f(col * flash, 1.0);
+  }
+`, { tracker });
+
+tracker.play();
 effect.play();
+```
+
+### Playlist (beat-anchored scene sequencing)
+
+```ts
+import { Playlist, Tracker, ShaderEffect } from '@shaderforge/engine';
+
+const playlist = new Playlist();
+playlist
+  .add({ fragmentShader: introShaderWGSL,  durationBars: 8  })
+  .add({ fragmentShader: mainShaderWGSL,   durationBars: 16 })
+  .add({ fragmentShader: outroShaderWGSL,  durationBars: 4  });
+
+// M4: ShaderEffect will accept a playlist and auto-switch shaders at bar boundaries
+```
+
+---
+
+## Project Structure
+
+```
+shaderforge/
+├── ShaderForge.API/              # .NET 9 backend
+│   ├── Controllers/              # Shader, User, SiteBackground
+│   ├── Data/                     # Interfaces, Models, Services, DTOs
+│   └── Program.cs
+├── ShaderForge.API.Tests/        # xUnit + Moq tests
+├── shaderforge.ui/               # Vue 3 + Vite + Vuetify frontend
+│   └── src/
+│       ├── features/
+│       │   ├── forge/            # Shader editor (Effect View)
+│       │   ├── demo/             # Demo / Tracker View  ← M4
+│       │   ├── frontpage/        # Community gallery
+│       │   ├── auth/             # Login / Register
+│       │   └── profile/          # User profile
+│       ├── components/           # NavBar, MonacoEditor, …
+│       └── services/             # API client
+└── webgpu-shader-engine/         # @shaderforge/engine NPM package
+    ├── src/
+    │   ├── index.ts              # ShaderEffect, createEffect — public API
+    │   ├── tracker.ts            # BeatClock, Tracker, Playlist
+    │   ├── uniforms.ts           # UniformBuffer (auto-padded)
+    │   └── defaults.ts           # Built-in WGSL shaders + uniform struct
+    ├── package.json
+    └── tsconfig.json
 ```
 
 ---
@@ -196,7 +276,7 @@ effect.play();
 | Layer | Technology |
 |-------|-----------|
 | GPU rendering | WebGPU (WGSL) |
-| Engine package | TypeScript (ESM, zero deps) |
+| Engine package | TypeScript ESM, zero runtime dependencies |
 | Frontend | Vue 3, Vite, Vuetify 3, Monaco Editor |
 | Backend | .NET 9, ASP.NET Core, Entity Framework Core |
 | Auth | JWT Bearer tokens |
@@ -208,14 +288,14 @@ effect.play();
 ## Development Setup
 
 ```bash
+# Engine package
+cd webgpu-shader-engine && npm install && npm run build
+
 # Backend
 cd ShaderForge.API && dotnet run
 
 # Frontend
 cd shaderforge.ui && npm install && npm run serve
-
-# Engine package
-cd webgpu-shader-engine && npm install && npm run build
 ```
 
 ---
@@ -223,4 +303,5 @@ cd webgpu-shader-engine && npm install && npm run build
 ## License
 
 [MIT](LICENSE)
+
 
