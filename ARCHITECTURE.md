@@ -184,7 +184,7 @@ Comments are a high-risk feature. The plan:
 | M6 — Community Platform | ❌ Not started | Gallery stubs exist; no real data layer |
 | Player Package Split | ❌ Not started | BeatClock/Tracker/Playlist to be extracted to `@shaderforge/player` |
 | Database (PostgreSQL + EF Core) | ❌ Not started | |
-| JWT Authentication | ❌ Not started | Stubs exist in API |
+| JWT Authentication | ✅ Done | `JwtTokenService` issues signed JWT tokens; Bearer auth middleware wired in `Program.cs`; write endpoints protected with `[Authorize]` |
 | Asset Management | ❌ Not started | Link-in model planned |
 | Comment Moderation | ❌ Not started | |
 

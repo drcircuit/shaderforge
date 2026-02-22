@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShaderForge.API.Data.Models;
 using System.Collections.Generic;
@@ -57,6 +58,7 @@ namespace ShaderForge.API.Controllers
             return Ok(shaders);
         }
 
+        [Authorize]
         [HttpPost]
         public ActionResult<Shader> CreateShader([FromBody] Shader shader)
         {
@@ -72,6 +74,7 @@ namespace ShaderForge.API.Controllers
             return CreatedAtAction(nameof(GetShaderById), new { id = shader.Id }, shader);
         }
 
+        [Authorize]
         [HttpPut("{id}")]
         public IActionResult UpdateShader(string id, [FromBody] Shader shader)
         {
@@ -85,6 +88,7 @@ namespace ShaderForge.API.Controllers
             return NoContent();
         }
 
+        [Authorize]
         [HttpDelete("{id}")]
         public IActionResult DeleteShader(string id)
         {
