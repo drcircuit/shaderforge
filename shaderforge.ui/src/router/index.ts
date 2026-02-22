@@ -26,6 +26,11 @@ const routes = [
     path: '/demo',
     name: 'Demo',
     component: () => import('@/features/demo/DemoPage.vue')
+  },
+  {
+    path: '/scene',
+    name: 'Scene',
+    component: () => import('@/features/scene/ScenePage.vue')
   }
 ];
 

@@ -1,11 +1,11 @@
 <template>
   <div class="demo-view">
-    <!-- Transport bar (mirrors ShaderLabDX12 Demo View controls) -->
+    <!-- Transport bar -->
     <div class="transport-bar tile">
-      <v-btn icon @click="handlePlay" :color="isPlaying ? 'primary' : undefined">
+      <v-btn icon size="small" @click="handlePlay" :color="isPlaying ? 'primary' : undefined">
         <v-icon>{{ isPlaying ? 'mdi-pause' : 'mdi-play' }}</v-icon>
       </v-btn>
-      <v-btn icon @click="handleStop">
+      <v-btn icon size="small" @click="handleStop">
         <v-icon>mdi-stop</v-icon>
       </v-btn>
       <v-text-field
@@ -16,16 +16,26 @@
         max="300"
         density="compact"
         hide-details
+        variant="outlined"
         class="bpm-input"
         @change="onBpmChange"
       />
-      <span class="position-display">Bar {{ barCount + 1 }} | Beat {{ beatInBar + 1 }}</span>
+      <span class="position-display">Bar {{ barCount + 1 }} &nbsp;|&nbsp; Beat {{ beatInBar + 1 }}</span>
+      <!-- Panel selector on small screens -->
+      <v-btn-toggle v-model="activePanel" density="compact" class="panel-toggle d-flex d-lg-none ml-auto" mandatory>
+        <v-btn value="preview" size="small" icon><v-icon size="16">mdi-monitor</v-icon></v-btn>
+        <v-btn value="tracker" size="small" icon><v-icon size="16">mdi-view-list</v-icon></v-btn>
+        <v-btn value="inspector" size="small" icon><v-icon size="16">mdi-information</v-icon></v-btn>
+      </v-btn-toggle>
     </div>
 
-    <!-- Three-panel layout: Preview | Timeline | Track inspector -->
+    <!-- Three-panel layout (desktop) / single-panel (mobile) -->
     <div class="demo-panels">
-      <!-- Left: canvas preview -->
-      <div class="preview-panel tile">
+      <!-- Preview panel -->
+      <div
+        class="preview-panel tile"
+        :class="{ 'panel-hidden': activePanel !== 'preview' }"
+      >
         <canvas ref="previewCanvas" class="preview-canvas"></canvas>
         <div v-if="initError" class="init-error-overlay">
           <v-icon class="error-icon">mdi-alert-circle</v-icon>
@@ -33,8 +43,11 @@
         </div>
       </div>
 
-      <!-- Center: row-grid tracker timeline -->
-      <div class="tracker-panel tile">
+      <!-- Tracker timeline -->
+      <div
+        class="tracker-panel tile"
+        :class="{ 'panel-hidden': activePanel !== 'tracker' }"
+      >
         <div class="tracker-header">
           <div class="row-label">Row</div>
           <div v-for="name in trackNames" :key="name" class="track-header">{{ name }}</div>
@@ -45,9 +58,9 @@
             :key="row"
             class="tracker-row"
             :class="{
-              'beat-line':  row % rowsPerBeat === 0,
-              'bar-line':   row % (rowsPerBeat * beatsPerBar) === 0,
-              'current-row': row === currentRow,
+              'beat-line':    row % rowsPerBeat === 0,
+              'bar-line':     row % (rowsPerBeat * beatsPerBar) === 0,
+              'current-row':  row === currentRow,
             }"
           >
             <div class="row-label">{{ row }}</div>
@@ -64,8 +77,11 @@
         </div>
       </div>
 
-      <!-- Right: track value inspector -->
-      <div class="inspector-panel tile">
+      <!-- Inspector -->
+      <div
+        class="inspector-panel tile"
+        :class="{ 'panel-hidden': activePanel !== 'inspector' }"
+      >
         <div class="inspector-title">Track Values</div>
         <div v-for="name in trackNames" :key="name" class="track-value-row">
           <span class="track-name">{{ name }}</span>
@@ -89,7 +105,6 @@ const totalRows = 128;
 const ROWS_BEFORE_CURRENT = 4;
 const VISIBLE_ROW_COUNT = 64;
 
-// Example tracks demonstrating beat-synced animation (mirrors ShaderLabDX12 demo flow)
 const trackerConfig: Record<string, Array<{ row: number; value: number; interpolation?: 'linear' | 'smooth' | 'constant' }>> = {
   brightness: [
     { row: 0,   value: 0.2, interpolation: 'linear' },
@@ -116,19 +131,18 @@ const currentRow = ref(0);
 const barCount = ref(0);
 const beatInBar = ref(0);
 const initError = ref<string | null>(null);
+const activePanel = ref<'preview' | 'tracker' | 'inspector'>('preview');
 
 let effect: ShaderEffect | null = null;
 let tracker: Tracker | null = null;
 let rafId = 0;
 
-// ---- Visible rows (show VISIBLE_ROW_COUNT rows starting ROWS_BEFORE_CURRENT before current) ----
 const visibleRows = computed(() => {
   const start = Math.max(0, currentRow.value - ROWS_BEFORE_CURRENT);
   const end = Math.min(totalRows - 1, start + VISIBLE_ROW_COUNT - 1);
   return Array.from({ length: end - start + 1 }, (_, i) => start + i);
 });
 
-// ---- Keyframe helpers ----
 function hasKeyframe(name: string, row: number): boolean {
   return trackerConfig[name]?.some(k => k.row === row) ?? false;
 }
@@ -137,7 +151,6 @@ function getValueAt(name: string, row: number): number {
   return tracker?.getValueAt(name, row) ?? 0;
 }
 
-// ---- Transport handlers ----
 function handlePlay() {
   if (!tracker || !effect) return;
   if (isPlaying.value) {
@@ -164,13 +177,10 @@ function handleStop() {
 }
 
 function onBpmChange() {
-  if (isPlaying.value) {
-    handleStop();
-  }
+  if (isPlaying.value) handleStop();
   buildTracker();
 }
 
-// ---- Tick loop (updates row display) ----
 function scheduleTick() {
   if (!isPlaying.value) return;
   rafId = requestAnimationFrame(() => {
@@ -184,7 +194,6 @@ function scheduleTick() {
   });
 }
 
-// ---- Build tracker with current config ----
 function buildTracker(): void {
   tracker = new Tracker({ bpm: bpm.value, rowsPerBeat, beatsPerBar, rows: totalRows });
   for (const [name, keyframes] of Object.entries(trackerConfig)) {
@@ -192,16 +201,13 @@ function buildTracker(): void {
   }
 }
 
-// ---- Lifecycle ----
 onMounted(async () => {
   buildTracker();
-
   if (previewCanvas.value) {
     try {
       effect = await ShaderEffect.create(previewCanvas.value, { tracker: tracker! });
       await effect.compile(DEFAULT_FRAGMENT_WGSL);
     } catch (err) {
-      console.error('ShaderEffect init failed:', err);
       initError.value = webgpuInitError(err);
     }
   }
@@ -220,47 +226,53 @@ onBeforeUnmount(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding: 0.75rem;
+  gap: 0.6rem;
+  padding: 0.6rem;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .tile {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(16, 18, 24, 0.92);
   border: 1px solid rgba(64, 192, 255, 0.15);
   border-radius: 6px;
 }
 
-/* Transport bar */
+/* ---- Transport bar ------------------------------------------------------ */
 .transport-bar {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 1rem;
+  gap: 0.6rem;
+  padding: 0.4rem 0.75rem;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .bpm-input {
-  max-width: 90px;
+  max-width: 88px;
+  min-width: 72px;
 }
 
 .position-display {
   font-family: 'Audiowide', monospace;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: #40c0ff;
-  margin-left: auto;
 }
 
-/* Three-panel layout */
+.panel-toggle {
+  background: transparent !important;
+}
+
+/* ---- Three-panel layout ------------------------------------------------- */
 .demo-panels {
   display: grid;
-  grid-template-columns: 1fr 2fr 180px;
-  gap: 0.75rem;
+  grid-template-columns: 1fr 2fr minmax(160px, 200px);
+  gap: 0.6rem;
   flex: 1;
   min-height: 0;
 }
 
-/* Preview canvas */
+/* ---- Preview panel ------------------------------------------------------ */
 .preview-panel {
   position: relative;
   overflow: hidden;
@@ -283,31 +295,31 @@ onBeforeUnmount(() => {
   gap: 0.5rem;
   background: rgba(0, 0, 0, 0.75);
   color: #ff6b6b;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   text-align: center;
   padding: 1rem;
-  /* Required so \n line-breaks in the error message string render in HTML */
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .error-icon {
-  font-size: 2rem;
+  font-size: 2rem !important;
   color: #ff6b6b;
 }
 
-/* Tracker timeline */
+/* ---- Tracker panel ------------------------------------------------------ */
 .tracker-panel {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 0;
 }
 
 .tracker-header {
   display: flex;
   gap: 2px;
   padding: 4px 6px;
-  background: rgba(64, 192, 255, 0.08);
+  background: rgba(64, 192, 255, 0.07);
   border-bottom: 1px solid rgba(64, 192, 255, 0.2);
   flex-shrink: 0;
 }
@@ -316,7 +328,9 @@ onBeforeUnmount(() => {
   flex: 1;
   overflow-y: auto;
   font-family: monospace;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(64, 192, 255, 0.2) transparent;
 }
 
 .tracker-row {
@@ -326,38 +340,28 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
 
-.tracker-row.beat-line {
-  border-bottom-color: rgba(64, 192, 255, 0.15);
-}
-
-.tracker-row.bar-line {
-  border-bottom: 1px solid rgba(64, 192, 255, 0.4);
-  background: rgba(64, 192, 255, 0.05);
-}
-
-.tracker-row.current-row {
-  background: rgba(64, 192, 255, 0.15);
-  border-left: 2px solid #40c0ff;
-}
+.tracker-row.beat-line  { border-bottom-color: rgba(64, 192, 255, 0.15); }
+.tracker-row.bar-line   { border-bottom: 1px solid rgba(64, 192, 255, 0.4); background: rgba(64, 192, 255, 0.05); }
+.tracker-row.current-row { background: rgba(64, 192, 255, 0.15); border-left: 2px solid #40c0ff; }
 
 .row-label {
-  width: 36px;
-  color: rgba(255, 255, 255, 0.35);
+  width: 34px;
+  color: rgba(255, 255, 255, 0.32);
   text-align: right;
-  padding-right: 8px;
+  padding-right: 6px;
   flex-shrink: 0;
 }
 
 .tracker-header .row-label {
   color: rgba(64, 192, 255, 0.7);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
 }
 
 .track-header {
   flex: 1;
   text-align: center;
   color: #40c0ff;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-family: 'Audiowide', monospace;
 }
 
@@ -369,38 +373,67 @@ onBeforeUnmount(() => {
 
 .tracker-cell.has-keyframe .keyframe-dot {
   color: #40c0ff;
-  font-size: 0.65rem;
+  font-size: 0.62rem;
 }
 
-/* Inspector panel */
+/* ---- Inspector panel ---------------------------------------------------- */
 .inspector-panel {
-  padding: 0.75rem;
+  padding: 0.6rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.4rem;
   overflow-y: auto;
 }
 
 .inspector-title {
   font-family: 'Audiowide', monospace;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: #40c0ff;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.2rem;
+  flex-shrink: 0;
 }
 
 .track-value-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
 }
 
-.track-name {
-  color: rgba(255, 255, 255, 0.6);
+.track-name  { color: rgba(255, 255, 255, 0.6); }
+.track-value { font-family: monospace; color: #40c0ff; }
+
+/* ---- Responsive --------------------------------------------------------- */
+
+/* On lg+ the panel-toggle button group is hidden, panels always visible */
+@media (min-width: 1280px) {
+  .panel-hidden { display: flex !important; }
 }
 
-.track-value {
-  font-family: monospace;
-  color: #40c0ff;
+/* Below lg: show only the active panel */
+@media (max-width: 1279px) {
+  .demo-panels {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+  }
+
+  .panel-hidden {
+    display: none !important;
+  }
+
+  /* The visible panel fills the whole area */
+  .preview-panel,
+  .tracker-panel,
+  .inspector-panel {
+    grid-column: 1;
+    grid-row: 1;
+  }
+}
+
+/* Compact transport on small phones */
+@media (max-width: 479px) {
+  .position-display {
+    font-size: 0.72rem;
+  }
 }
 </style>

@@ -91,7 +91,6 @@ html, body, #app {
 .v-application, .v-application--wrap {
   width: 100%;
   height: 100%;
-  overflow: hidden;
 }
 
 /* v-app container fills what's left */
@@ -99,13 +98,12 @@ html, body, #app {
   height: 100vh;
 }
 
-/* main-container fills the remainder after navbar (64px) */
+/* main-container fills the remainder after navbar */
 .main-container {
   height: calc(100vh - 64px);
-  overflow: hidden;
-  /* Mirage gradient */
-  background: #16222A; /* fallback */
-  background: linear-gradient(to right, #16222A, #3A6073);
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: transparent;
 }
 
 /* --------------------------------
@@ -120,39 +118,15 @@ a, .tile-title,
 
 /* Make sure Vuetify's v-main doesn't introduce scrollbars */
 .v-main {
-  overflow: hidden !important;
   background-image: url('/public/assets/images/hexbg.png') !important;
   background-repeat: repeat !important;
   background-size: 20% !important;
 }
 
-/* Override Vuetify's overflow-y: scroll */
+/* Override all Vuetify overflow behaviors */
+.v-application,
 .v-application--wrap {
   overflow-y: hidden !important;
-}
-
-/* Override all Vuetify scrollbar behaviors */
-.v-application,
-.v-application--wrap,
-.v-main,
-.v-main__wrap {
-  overflow-y: hidden !important;
-  overflow: hidden !important;
-}
-
-/* Remove scrollbar styles completely */
-::-webkit-scrollbar {
-  display: none !important;
-}
-
-/* For Firefox */
-* {
-  scrollbar-width: none !important;
-}
-
-/* For IE/Edge */
-* {
-  -ms-overflow-style: none !important;
 }
 
 .background-system {
