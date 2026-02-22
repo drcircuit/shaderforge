@@ -3,11 +3,14 @@
     <!-- Toolbar -->
     <div class="scene-toolbar tile">
       <div class="toolbar-section">
-        <v-btn size="small" variant="outlined" color="primary" prepend-icon="mdi-plus" @click="addScene">
+        <v-btn size="small" variant="outlined" color="primary" prepend-icon="mdi-image" @click="addScene">
           Add Scene
         </v-btn>
-        <v-btn size="small" variant="outlined" color="secondary" prepend-icon="mdi-image-filter-frames" @click="addPostFx">
+        <v-btn size="small" variant="outlined" color="secondary" prepend-icon="mdi-image-filter-drama" @click="addPostFx">
           Add Post-FX
+        </v-btn>
+        <v-btn size="small" variant="outlined" color="warning" prepend-icon="mdi-swap-horizontal" @click="addTransition">
+          Add Transition
         </v-btn>
         <v-divider vertical class="mx-2" />
         <v-btn
@@ -28,7 +31,7 @@
     </div>
 
     <div class="scene-panels">
-      <!-- Left: Layer stack editor -->
+      <!-- Left: Layer stack + wiring inspector -->
       <div class="layer-stack-panel tile">
         <div class="panel-header">
           <v-icon size="18" color="primary">mdi-layers</v-icon>
@@ -37,7 +40,7 @@
 
         <div v-if="layers.length === 0" class="empty-stack">
           <v-icon size="48" color="rgba(64,192,255,0.3)">mdi-layers-outline</v-icon>
-          <p>No layers yet. Add a Scene or Post-FX layer.</p>
+          <p>No layers yet. Add a Scene, Post-FX, or Transition layer.</p>
         </div>
 
         <div v-else class="layers-list">
@@ -52,12 +55,10 @@
               <v-icon size="16" color="rgba(255,255,255,0.3)">mdi-drag-vertical</v-icon>
             </div>
             <div class="layer-info">
-              <v-icon size="16" :color="layer.type === 'scene' ? '#40c0ff' : '#9b59b6'">
-                {{ layer.type === 'scene' ? 'mdi-image' : 'mdi-image-filter-drama' }}
-              </v-icon>
+              <v-icon size="15" :color="layerColor(layer.type)">{{ layerIcon(layer.type) }}</v-icon>
               <span class="layer-name">{{ layer.name }}</span>
-              <v-chip size="x-small" :color="layer.type === 'scene' ? 'primary' : 'secondary'" variant="tonal">
-                {{ layer.type === 'scene' ? 'Scene' : 'PostFX' }}
+              <v-chip size="x-small" :color="layerColor(layer.type)" variant="tonal">
+                {{ layerLabel(layer.type) }}
               </v-chip>
             </div>
             <div class="layer-actions">
@@ -68,34 +69,117 @@
           </div>
         </div>
 
-        <!-- Channel wiring (only for scene layers) -->
-        <div v-if="selectedLayer && selectedLayer.type === 'scene'" class="channel-wiring">
-          <div class="panel-header mt-2">
-            <v-icon size="18" color="primary">mdi-connection</v-icon>
-            <span>Channel Inputs ({{ selectedLayer.name }})</span>
-          </div>
-          <div class="channel-rows">
-            <div v-for="ch in 4" :key="ch" class="channel-row">
-              <span class="channel-label">iChannel{{ ch - 1 }}</span>
+        <!-- ---- Wiring inspector (updates based on selected layer type) ---- -->
+        <div v-if="selectedLayer" class="wiring-inspector">
+          <!-- SCENE: output mode + channel inputs -->
+          <template v-if="selectedLayer.type === 'scene'">
+            <div class="wiring-header">
+              <v-icon size="15" color="primary">mdi-connection</v-icon>
+              <span>Scene: {{ selectedLayer.name }}</span>
+            </div>
+            <div class="wiring-row">
+              <span class="wiring-label">Output</span>
+              <v-btn-toggle
+                v-model="selectedLayer.outputMode"
+                mandatory
+                density="compact"
+                class="output-toggle"
+              >
+                <v-btn value="buffer" size="x-small">Buffer</v-btn>
+                <v-btn value="screen" size="x-small">Screen</v-btn>
+              </v-btn-toggle>
+            </div>
+            <div v-for="ch in 4" :key="ch" class="wiring-row">
+              <span class="wiring-label">iCh{{ ch - 1 }}</span>
               <v-select
                 v-model="selectedLayer.channels[ch - 1]"
-                :items="sceneLayerNames"
+                :items="namedBufferLayers"
                 density="compact"
                 hide-details
                 variant="outlined"
                 placeholder="None"
                 clearable
-                class="channel-select"
+                class="wiring-select"
               />
             </div>
-          </div>
+          </template>
+
+          <!-- POSTFX: single input buffer -->
+          <template v-else-if="selectedLayer.type === 'postfx'">
+            <div class="wiring-header">
+              <v-icon size="15" color="secondary">mdi-connection</v-icon>
+              <span>PostFX: {{ selectedLayer.name }}</span>
+            </div>
+            <div class="wiring-row">
+              <span class="wiring-label">iCh0 (in)</span>
+              <v-select
+                v-model="selectedLayer.channels[0]"
+                :items="namedBufferLayers"
+                density="compact"
+                hide-details
+                variant="outlined"
+                placeholder="Previous layer"
+                clearable
+                class="wiring-select"
+              />
+            </div>
+          </template>
+
+          <!-- TRANSITION: buffer A, buffer B, time factor -->
+          <template v-else-if="selectedLayer.type === 'transition'">
+            <div class="wiring-header">
+              <v-icon size="15" color="warning">mdi-swap-horizontal</v-icon>
+              <span>Transition: {{ selectedLayer.name }}</span>
+            </div>
+            <div class="wiring-row">
+              <span class="wiring-label">Buffer A</span>
+              <v-select
+                v-model="selectedLayer.transitionSourceA"
+                :items="namedBufferLayers"
+                density="compact"
+                hide-details
+                variant="outlined"
+                placeholder="None"
+                clearable
+                class="wiring-select"
+              />
+            </div>
+            <div class="wiring-row">
+              <span class="wiring-label">Buffer B</span>
+              <v-select
+                v-model="selectedLayer.transitionSourceB"
+                :items="namedBufferLayers"
+                density="compact"
+                hide-details
+                variant="outlined"
+                placeholder="None"
+                clearable
+                class="wiring-select"
+              />
+            </div>
+            <div class="wiring-row">
+              <span class="wiring-label">Time ({{ selectedLayer.transitionTimeFactor.toFixed(2) }})</span>
+              <v-slider
+                v-model="selectedLayer.transitionTimeFactor"
+                min="0"
+                max="1"
+                step="0.01"
+                hide-details
+                density="compact"
+                color="warning"
+                class="wiring-slider"
+              />
+            </div>
+          </template>
         </div>
       </div>
 
       <!-- Center: Monaco code editor -->
       <div class="code-panel tile">
         <div class="panel-header">
-          <v-icon size="18" color="primary">mdi-code-braces</v-icon>
+          <v-icon size="18" :color="selectedLayer ? layerColor(selectedLayer.type) : 'primary'">
+            mdi-code-braces
+          </v-icon>
           <span>{{ selectedLayer ? selectedLayer.name : 'Select a layer' }} — Fragment Shader</span>
         </div>
         <div class="editor-body" v-if="selectedLayer">
@@ -110,8 +194,6 @@
           <v-icon size="48" color="rgba(64,192,255,0.3)">mdi-code-braces</v-icon>
           <p>Select a layer to edit its shader</p>
         </div>
-
-        <!-- Error overlay -->
         <div v-if="compileError" class="compile-error-overlay">
           <pre>{{ compileError }}</pre>
         </div>
@@ -142,12 +224,23 @@ import { ShaderEffect, LayerStack, DEFAULT_FRAGMENT_WGSL } from '@shaderforge/en
 import { webgpuInitError } from '@/utils/webgpu';
 
 // ---- Types ----------------------------------------------------------------
+type LayerType = 'scene' | 'postfx' | 'transition';
+
 interface SceneLayer {
   id: string;
   name: string;
-  type: 'scene' | 'postfx';
+  type: LayerType;
   fragmentShader: string;
+  /** iChannel0–3 → named buffer scene (scene/transition layers) */
   channels: (string | null)[];
+  /** Scene only: render to a named off-screen buffer or directly to screen */
+  outputMode: 'buffer' | 'screen';
+  /** Transition only: first source buffer (→ iChannel0) */
+  transitionSourceA: string | null;
+  /** Transition only: second source buffer (→ iChannel1) */
+  transitionSourceB: string | null;
+  /** Transition only: blend factor 0–1 (exposed to shader as iChannel2 value or uniform) */
+  transitionTimeFactor: number;
 }
 
 // ---- State ----------------------------------------------------------------
@@ -166,6 +259,10 @@ const layers = ref<SceneLayer[]>([
     type: 'scene',
     fragmentShader: DEFAULT_FRAGMENT_WGSL,
     channels: [null, null, null, null],
+    outputMode: 'buffer',
+    transitionSourceA: null,
+    transitionSourceB: null,
+    transitionTimeFactor: 0,
   },
 ]);
 
@@ -174,9 +271,31 @@ const selectedLayer = computed<SceneLayer | null>(() =>
   selectedLayerIdx.value >= 0 ? layers.value[selectedLayerIdx.value] : null
 );
 
-const sceneLayerNames = computed<string[]>(() =>
-  layers.value.filter(l => l.type === 'scene').map(l => l.name)
+/** Names of all scene/transition layers that produce a buffer — usable as inputs */
+const namedBufferLayers = computed<string[]>(() =>
+  layers.value
+    .filter(l => l.type === 'scene' || l.type === 'transition')
+    .map(l => l.name)
 );
+
+// ---- Layer type helpers ---------------------------------------------------
+function layerIcon(type: LayerType): string {
+  if (type === 'scene') return 'mdi-image';
+  if (type === 'transition') return 'mdi-swap-horizontal';
+  return 'mdi-image-filter-drama';
+}
+
+function layerColor(type: LayerType): string {
+  if (type === 'scene') return '#40c0ff';
+  if (type === 'transition') return '#ffa040';
+  return '#9b59b6';
+}
+
+function layerLabel(type: LayerType): string {
+  if (type === 'scene') return 'Scene';
+  if (type === 'transition') return 'Transition';
+  return 'PostFX';
+}
 
 // ---- Editor options -------------------------------------------------------
 const editorOptions = {
@@ -190,27 +309,33 @@ const editorOptions = {
 };
 
 // ---- Layer management -----------------------------------------------------
-function addScene() {
+function makeLayer(type: LayerType, suffix: string): SceneLayer {
   layerCounter += 1;
-  layers.value.push({
+  return {
     id: crypto.randomUUID(),
-    name: `scene${layerCounter}`,
-    type: 'scene',
+    name: `${suffix}${layerCounter}`,
+    type,
     fragmentShader: DEFAULT_FRAGMENT_WGSL,
     channels: [null, null, null, null],
-  });
+    outputMode: 'buffer',
+    transitionSourceA: null,
+    transitionSourceB: null,
+    transitionTimeFactor: 0,
+  };
+}
+
+function addScene() {
+  layers.value.push(makeLayer('scene', 'scene'));
   selectedLayerIdx.value = layers.value.length - 1;
 }
 
 function addPostFx() {
-  layerCounter += 1;
-  layers.value.push({
-    id: crypto.randomUUID(),
-    name: `postfx${layerCounter}`,
-    type: 'postfx',
-    fragmentShader: DEFAULT_FRAGMENT_WGSL,
-    channels: [null, null, null, null],
-  });
+  layers.value.push(makeLayer('postfx', 'postfx'));
+  selectedLayerIdx.value = layers.value.length - 1;
+}
+
+function addTransition() {
+  layers.value.push(makeLayer('transition', 'transition'));
   selectedLayerIdx.value = layers.value.length - 1;
 }
 
@@ -233,19 +358,24 @@ async function recompileStack() {
   try {
     const stack = new LayerStack();
 
-    // Add scenes in order
     for (const layer of layers.value) {
-      if (layer.type === 'scene') {
-        const channels = layer.channels
-          .map((src, ch) => src ? { channel: ch as 0 | 1 | 2 | 3, source: src } : null)
-          .filter((c): c is NonNullable<typeof c> => c !== null);
-        stack.scene({ name: layer.name, fragmentShader: layer.fragmentShader, channels });
-      } else {
+      if (layer.type === 'postfx') {
         stack.postFx(layer.fragmentShader);
+      } else {
+        // Scene and Transition both compile as named scene passes with channel wiring
+        const channels = layer.type === 'transition'
+          ? [
+              layer.transitionSourceA ? { channel: 0 as const, source: layer.transitionSourceA } : null,
+              layer.transitionSourceB ? { channel: 1 as const, source: layer.transitionSourceB } : null,
+            ].filter((c): c is NonNullable<typeof c> => c !== null)
+          : layer.channels
+              .map((src, ch) => src ? { channel: ch as 0 | 1 | 2 | 3, source: src } : null)
+              .filter((c): c is NonNullable<typeof c> => c !== null);
+
+        stack.scene({ name: layer.name, fragmentShader: layer.fragmentShader, channels });
       }
     }
 
-    // Rebuild the effect with the new stack
     effect?.destroy();
     effect = await ShaderEffect.create(previewCanvas.value, { layerStack: stack });
     if (isPlaying.value) effect.play();
@@ -275,7 +405,6 @@ function stopAll() {
 onMounted(async () => {
   if (previewCanvas.value) {
     try {
-      // Start with a single default scene
       const stack = new LayerStack().scene({ name: 'base', fragmentShader: DEFAULT_FRAGMENT_WGSL });
       effect = await ShaderEffect.create(previewCanvas.value, { layerStack: stack });
       effect.play();
@@ -338,7 +467,7 @@ onBeforeUnmount(() => {
 /* ---- Three-panel layout ------------------------------------------------- */
 .scene-panels {
   display: grid;
-  grid-template-columns: 220px 1fr 1fr;
+  grid-template-columns: 240px 1fr 1fr;
   gap: 0.6rem;
   flex: 1;
   min-height: 0;
@@ -372,18 +501,20 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 0.5rem;
   color: rgba(255, 255, 255, 0.35);
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   text-align: center;
   padding: 1rem;
 }
 
 .layers-list {
-  flex: 1;
   overflow-y: auto;
   padding: 0.4rem;
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+  /* Allow wiring inspector to always be visible */
+  max-height: 50%;
+  flex-shrink: 0;
 }
 
 .layer-item {
@@ -429,35 +560,52 @@ onBeforeUnmount(() => {
 
 .layer-actions { flex-shrink: 0; }
 
-/* ---- Channel wiring ---------------------------------------------------- */
-.channel-wiring {
-  border-top: 1px solid rgba(64, 192, 255, 0.1);
-  padding: 0.4rem;
+/* ---- Wiring inspector -------------------------------------------------- */
+.wiring-inspector {
+  flex: 1;
+  overflow-y: auto;
+  border-top: 1px solid rgba(64, 192, 255, 0.12);
+  padding: 0.5rem 0.5rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-height: 0;
+}
+
+.wiring-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: 'Audiowide', sans-serif;
+  font-size: 0.7rem;
+  color: rgba(64, 192, 255, 0.8);
+  margin-bottom: 0.2rem;
   flex-shrink: 0;
 }
 
-.channel-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 0.3rem 0;
-}
-
-.channel-row {
+.wiring-row {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-.channel-label {
+.wiring-label {
   font-family: monospace;
-  font-size: 0.72rem;
-  color: rgba(64, 192, 255, 0.7);
-  width: 72px;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  width: 70px;
   flex-shrink: 0;
 }
 
-.channel-select {
+.wiring-select {
+  flex: 1;
+}
+
+.output-toggle {
+  flex: 1;
+}
+
+.wiring-slider {
   flex: 1;
 }
 
@@ -549,7 +697,7 @@ onBeforeUnmount(() => {
 /* ---- Responsive --------------------------------------------------------- */
 @media (max-width: 1279px) {
   .scene-panels {
-    grid-template-columns: 180px 1fr 1fr;
+    grid-template-columns: 200px 1fr 1fr;
   }
 }
 
@@ -567,7 +715,11 @@ onBeforeUnmount(() => {
   }
 
   .layer-stack-panel {
-    max-height: 240px;
+    max-height: 300px;
+  }
+
+  .layers-list {
+    max-height: 120px;
   }
 }
 

@@ -295,6 +295,25 @@ const saveShader = async () => {
 
 .adv-switch {
   flex-shrink: 0;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Remove Vuetify 3 internal vertical padding from the switch so it aligns
+   with the compact buttons on the same toolbar row */
+.adv-switch :deep(.v-input__control),
+.adv-switch :deep(.v-selection-control) {
+  min-height: unset !important;
+}
+
+/* 28px matches the height of size="small" v-btn in Vuetify 3 compact mode */
+.adv-switch :deep(.v-selection-control__wrapper) {
+  height: 28px;
+}
+
+.adv-switch :deep(.v-label) {
+  font-size: 0.82rem;
+  opacity: 0.85;
 }
 
 .shortcut-hint {
