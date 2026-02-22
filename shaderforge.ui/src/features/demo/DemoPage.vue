@@ -27,6 +27,10 @@
       <!-- Left: canvas preview -->
       <div class="preview-panel tile">
         <canvas ref="previewCanvas" class="preview-canvas"></canvas>
+        <div v-if="initError" class="init-error-overlay">
+          <v-icon class="error-icon">mdi-alert-circle</v-icon>
+          <span>{{ initError }}</span>
+        </div>
       </div>
 
       <!-- Center: row-grid tracker timeline -->
@@ -75,6 +79,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { ShaderEffect, Tracker, DEFAULT_FRAGMENT_WGSL } from '@shaderforge/engine';
+import { webgpuInitError } from '@/utils/webgpu';
 
 // ---- Tracker config ----
 const bpm = ref(120);
@@ -110,6 +115,7 @@ const isPlaying = ref(false);
 const currentRow = ref(0);
 const barCount = ref(0);
 const beatInBar = ref(0);
+const initError = ref<string | null>(null);
 
 let effect: ShaderEffect | null = null;
 let tracker: Tracker | null = null;
@@ -158,6 +164,9 @@ function handleStop() {
 }
 
 function onBpmChange() {
+  if (isPlaying.value) {
+    handleStop();
+  }
   buildTracker();
 }
 
@@ -193,6 +202,7 @@ onMounted(async () => {
       await effect.compile(DEFAULT_FRAGMENT_WGSL);
     } catch (err) {
       console.error('ShaderEffect init failed:', err);
+      initError.value = webgpuInitError(err);
     }
   }
 });
@@ -261,6 +271,29 @@ onBeforeUnmount(() => {
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.init-error-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ff6b6b;
+  font-size: 0.8rem;
+  text-align: center;
+  padding: 1rem;
+  /* Required so \n line-breaks in the error message string render in HTML */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.error-icon {
+  font-size: 2rem;
+  color: #ff6b6b;
 }
 
 /* Tracker timeline */

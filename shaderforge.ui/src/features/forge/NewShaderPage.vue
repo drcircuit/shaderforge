@@ -132,6 +132,7 @@ import { ref, onMounted, onBeforeUnmount } from 'vue';
 import MonacoEditor from '@/components/MonacoEditor.vue';
 import { useRouter } from 'vue-router';
 import { ShaderEffect, DEFAULT_FRAGMENT_WGSL, DEFAULT_VERTEX_WGSL } from '@shaderforge/engine';
+import { webgpuInitError } from '@/utils/webgpu';
 
 // State
 const shaderTitle = ref('');
@@ -175,6 +176,7 @@ onMounted(async () => {
       }
     } catch (error) {
       console.error('Failed to initialize ShaderEffect:', error);
+      compileError.value = webgpuInitError(error);
     }
   }
 
@@ -324,6 +326,7 @@ const saveShader = async () => {
   padding: 8px 12px;
   max-height: 40%;
   overflow-y: auto;
+  /* Required so \n line-breaks in the error message string render in HTML */
   white-space: pre-wrap;
   word-break: break-word;
   z-index: 10;

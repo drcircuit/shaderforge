@@ -80,6 +80,7 @@ namespace ShaderForge.API.Controllers
                 return BadRequest();
             }
             shader.UpdatedAt = System.DateTime.Now;
+            shader.IsPublic = shader.Visibility == ShaderVisibility.Public;
             _shaderRepository.UpdateShader(shader);
             return NoContent();
         }
