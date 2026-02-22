@@ -286,8 +286,8 @@ FakesAssemblies/
 node_modules/
 
 # TypeScript / NPM build output
-webgpu-shader-engine/dist/
-webgpu-shader-engine/package-lock.json
+shaderforge-engine/dist/
+shaderforge-engine/package-lock.json
 
 # Visual Studio 6 build log
 *.plg
