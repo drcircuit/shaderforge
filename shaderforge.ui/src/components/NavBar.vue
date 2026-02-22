@@ -17,6 +17,8 @@
       <!-- Navigation Links for Desktop -->
       <div class="nav-links d-none d-md-flex">
         <v-btn text to="/" class="sgi-link">Home</v-btn>
+        <v-btn text to="/forge/new" class="sgi-link" prepend-icon="mdi-code-braces">Forge</v-btn>
+        <v-btn text to="/demo" class="sgi-link" prepend-icon="mdi-play-circle">Demo</v-btn>
         <v-btn text to="/newly-forged" class="sgi-link">Newly Forged</v-btn>
         <v-btn text to="/top-shaders" class="sgi-link">Top Shaders</v-btn>
         <v-btn text to="/tutorials" class="sgi-link">Tutorials</v-btn>

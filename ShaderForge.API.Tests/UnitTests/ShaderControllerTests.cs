@@ -2,7 +2,7 @@ using Xunit;
 using FluentAssertions;
 using Moq;
 using ShaderForge.API.Data.Interfaces;
-using ShaderForge.API.Data.Models;
+using ShaderForge.API.Data.DTO;
 using ShaderForge.API.Controllers;
 using Microsoft.AspNetCore.Mvc;
 
@@ -212,6 +212,76 @@ namespace ShaderForge.API.Tests.UnitTests
             var badRequestResult = result as BadRequestResult;
 
             result.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void CreateShader_ShouldSetIsPublicTrue_WhenVisibilityIsPublic()
+        {
+            var shader = new Shader { Id = null, Name = "Public Shader", Visibility = ShaderVisibility.Public };
+            var shaderRepositoryMock = new Mock<IShaderRepository>();
+            shaderRepositoryMock.Setup(x => x.AddShader(It.IsAny<Shader>()));
+            var shaderController = new ShaderController(shaderRepositoryMock.Object);
+
+            var res = shaderController.CreateShader(shader).Result as CreatedAtActionResult;
+            var result = res.Value as Shader;
+
+            result.IsPublic.Should().BeTrue();
+        }
+
+        [Fact]
+        public void CreateShader_ShouldSetIsPublicFalse_WhenVisibilityIsPrivate()
+        {
+            var shader = new Shader { Id = null, Name = "Private Shader", Visibility = ShaderVisibility.Private };
+            var shaderRepositoryMock = new Mock<IShaderRepository>();
+            shaderRepositoryMock.Setup(x => x.AddShader(It.IsAny<Shader>()));
+            var shaderController = new ShaderController(shaderRepositoryMock.Object);
+
+            var res = shaderController.CreateShader(shader).Result as CreatedAtActionResult;
+            var result = res.Value as Shader;
+
+            result.IsPublic.Should().BeFalse();
+        }
+
+        [Fact]
+        public void CreateShader_ShouldSetIsPublicFalse_WhenVisibilityIsUnlisted()
+        {
+            var shader = new Shader { Id = null, Name = "Unlisted Shader", Visibility = ShaderVisibility.Unlisted };
+            var shaderRepositoryMock = new Mock<IShaderRepository>();
+            shaderRepositoryMock.Setup(x => x.AddShader(It.IsAny<Shader>()));
+            var shaderController = new ShaderController(shaderRepositoryMock.Object);
+
+            var res = shaderController.CreateShader(shader).Result as CreatedAtActionResult;
+            var result = res.Value as Shader;
+
+            result.IsPublic.Should().BeFalse();
+        }
+
+        [Fact]
+        public void UpdateShader_ShouldSetIsPublicTrue_WhenVisibilityChangedToPublic()
+        {
+            var shaderId = Guid.NewGuid().ToString();
+            var shader = new Shader { Id = shaderId, Name = "Shader", Visibility = ShaderVisibility.Public };
+            var shaderRepositoryMock = new Mock<IShaderRepository>();
+            shaderRepositoryMock.Setup(x => x.UpdateShader(It.IsAny<Shader>()));
+            var shaderController = new ShaderController(shaderRepositoryMock.Object);
+
+            shaderController.UpdateShader(shaderId, shader);
+
+            shader.IsPublic.Should().BeTrue();
+        }
+
+        [Fact]
+        public void UpdateShader_ShouldSetIsPublicFalse_WhenVisibilityChangedToPrivate()
+        {
+            var shaderId = Guid.NewGuid().ToString();
+            var shader = new Shader { Id = shaderId, Name = "Shader", Visibility = ShaderVisibility.Private };
+            var shaderRepositoryMock = new Mock<IShaderRepository>();
+            shaderRepositoryMock.Setup(x => x.UpdateShader(It.IsAny<Shader>()));
+            var shaderController = new ShaderController(shaderRepositoryMock.Object);
+
+            shaderController.UpdateShader(shaderId, shader);
+
+            shader.IsPublic.Should().BeFalse();
         }
     }
 }

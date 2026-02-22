@@ -21,6 +21,11 @@ const routes = [
     path: '/forge/new',
     name: 'NewShader',
     component: () => import('@/features/forge/NewShaderPage.vue')
+  },
+  {
+    path: '/demo',
+    name: 'Demo',
+    component: () => import('@/features/demo/DemoPage.vue')
   }
 ];
 
