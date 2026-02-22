@@ -17,9 +17,9 @@
     <!-- Navigation Links (desktop only) -->
     <div class="nav-links d-none d-lg-flex">
       <v-btn variant="text" to="/" class="sgi-link">Home</v-btn>
-      <v-btn variant="text" to="/forge/new" class="sgi-link" prepend-icon="mdi-code-braces">Forge</v-btn>
-      <v-btn variant="text" to="/demo" class="sgi-link" prepend-icon="mdi-play-circle">Demo</v-btn>
-      <v-btn variant="text" to="/scene" class="sgi-link" prepend-icon="mdi-layers">Scene</v-btn>
+      <v-btn variant="text" to="/forge/new" class="sgi-link">Forge</v-btn>
+      <v-btn variant="text" to="/demo" class="sgi-link">Demo</v-btn>
+      <v-btn variant="text" to="/scene" class="sgi-link">Scene</v-btn>
       <v-btn variant="text" to="/newly-forged" class="sgi-link d-none d-xl-flex">Newly Forged</v-btn>
       <v-btn variant="text" to="/top-shaders" class="sgi-link d-none d-xl-flex">Top Shaders</v-btn>
     </div>
@@ -39,8 +39,8 @@
 
     <!-- Auth Buttons (desktop) -->
     <div class="auth-buttons d-none d-md-flex">
-      <v-btn variant="text" to="/login" class="sgi-link" prepend-icon="mdi-login">Login</v-btn>
-      <v-btn variant="text" to="/register" class="sgi-link" prepend-icon="mdi-account-plus">Register</v-btn>
+      <v-btn variant="text" to="/login" class="sgi-link">Login</v-btn>
+      <v-btn variant="text" to="/register" class="sgi-link">Register</v-btn>
     </div>
 
     <!-- Hamburger menu (mobile/tablet) -->
