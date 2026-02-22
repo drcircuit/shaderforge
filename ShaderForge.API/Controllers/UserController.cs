@@ -18,9 +18,9 @@ namespace ShaderForge.API.Controllers
         }
 
         [HttpPost("register")]
-        public IActionResult Register([FromBody] UserRegistrationDto userRegistrationDto)
+        public async Task<IActionResult> Register([FromBody] UserRegistrationDto userRegistrationDto)
         {
-            var result = _userService.Register(userRegistrationDto);
+            var result = await _userService.Register(userRegistrationDto);
             if (!result.Success)
             {
                 return BadRequest(result.Errors);
@@ -30,9 +30,9 @@ namespace ShaderForge.API.Controllers
         }
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] UserLoginDto userLoginDto)
+        public async Task<IActionResult> Login([FromBody] UserLoginDto userLoginDto)
         {
-            var result = _userService.Login(userLoginDto);
+            var result = await _userService.Login(userLoginDto);
             if (!result.Success)
             {
                 return Unauthorized(result.Errors);
@@ -49,9 +49,9 @@ namespace ShaderForge.API.Controllers
         }
 
         [HttpPut("profile")]
-        public IActionResult UpdateProfile([FromBody] UserProfileUpdateDto userProfileUpdateDto)
+        public async Task<IActionResult> UpdateProfile([FromBody] UserProfileUpdateDto userProfileUpdateDto)
         {
-            var result = _userService.UpdateProfile(userProfileUpdateDto);
+            var result = await _userService.UpdateProfile(userProfileUpdateDto);
             if (!result.Success)
             {
                 return BadRequest(result.Errors);

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using ShaderForge.API.Data.DTO;
 using ShaderForge.API.Data.Interfaces;
 using ShaderForge.API.Models;
@@ -7,28 +8,28 @@ namespace ShaderForge.API.Data.Services
     public class InMemoryUserService : IUserService
     {
         private readonly IUserStore _userStore;
-        private readonly Dictionary<string, User> _userProfiles = new();
+        private readonly ConcurrentDictionary<string, User> _userProfiles = new();
 
         public InMemoryUserService(IUserStore userStore)
         {
             _userStore = userStore;
         }
 
-        public UserServiceResult Register(UserRegistrationDto dto)
+        public async Task<UserServiceResult> Register(UserRegistrationDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
             {
                 return new UserServiceResult { Success = false, Errors = new[] { "Username and password are required." } };
             }
 
-            var existing = _userStore.FindByUsernameAsync(dto.Username).Result;
+            var existing = await _userStore.FindByUsernameAsync(dto.Username);
             if (existing != null)
             {
                 return new UserServiceResult { Success = false, Errors = new[] { "Username already taken." } };
             }
 
             var author = new ShaderAuthor { Username = dto.Username, Email = dto.Email };
-            _userStore.CreateUserAsync(author, dto.Password).Wait();
+            await _userStore.CreateUserAsync(author, dto.Password);
 
             var user = new User
             {
@@ -43,23 +44,22 @@ namespace ShaderForge.API.Data.Services
             return new UserServiceResult { Success = true, User = user };
         }
 
-        public UserServiceResult Login(UserLoginDto dto)
+        public async Task<UserServiceResult> Login(UserLoginDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
             {
                 return new UserServiceResult { Success = false, Errors = new[] { "Username and password are required." } };
             }
 
-            var valid = _userStore.ValidateCredentialsAsync(dto.Username, dto.Password).Result;
+            var valid = await _userStore.ValidateCredentialsAsync(dto.Username, dto.Password);
             if (!valid)
             {
                 return new UserServiceResult { Success = false, Errors = new[] { "Invalid credentials." } };
             }
 
-            _userProfiles.TryGetValue(dto.Username, out var user);
-            if (user == null)
+            if (!_userProfiles.TryGetValue(dto.Username, out var user))
             {
-                var author = _userStore.FindByUsernameAsync(dto.Username).Result;
+                var author = await _userStore.FindByUsernameAsync(dto.Username);
                 user = new User
                 {
                     Id = Guid.NewGuid().ToString(),
@@ -71,14 +71,14 @@ namespace ShaderForge.API.Data.Services
             return new UserServiceResult { Success = true, User = user };
         }
 
-        public UserServiceResult UpdateProfile(UserProfileUpdateDto dto)
+        public async Task<UserServiceResult> UpdateProfile(UserProfileUpdateDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Username))
             {
                 return new UserServiceResult { Success = false, Errors = new[] { "Username is required." } };
             }
 
-            var author = _userStore.FindByUsernameAsync(dto.Username).Result;
+            var author = await _userStore.FindByUsernameAsync(dto.Username);
             if (author == null)
             {
                 return new UserServiceResult { Success = false, Errors = new[] { "User not found." } };
