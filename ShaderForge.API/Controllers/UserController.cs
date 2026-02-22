@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ShaderForge.API.Data.DTO;
 using ShaderForge.API.Data.Interfaces;
@@ -41,6 +42,7 @@ namespace ShaderForge.API.Controllers
             return Ok(new { Token = token });
         }
 
+        [Authorize]
         [HttpPost("logout")]
         public IActionResult Logout([FromBody] string token)
         {
@@ -48,6 +50,7 @@ namespace ShaderForge.API.Controllers
             return NoContent();
         }
 
+        [Authorize]
         [HttpPut("profile")]
         public async Task<IActionResult> UpdateProfile([FromBody] UserProfileUpdateDto userProfileUpdateDto)
         {
