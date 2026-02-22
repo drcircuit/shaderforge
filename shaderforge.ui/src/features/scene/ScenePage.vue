@@ -3,13 +3,13 @@
     <!-- Toolbar -->
     <div class="scene-toolbar tile">
       <div class="toolbar-section">
-        <v-btn size="small" variant="outlined" color="primary" prepend-icon="mdi-image" @click="addScene">
+        <v-btn size="small" variant="outlined" color="primary" @click="addScene">
           Add Scene
         </v-btn>
-        <v-btn size="small" variant="outlined" color="secondary" prepend-icon="mdi-image-filter-drama" @click="addPostFx">
+        <v-btn size="small" variant="outlined" color="secondary" @click="addPostFx">
           Add Post-FX
         </v-btn>
-        <v-btn size="small" variant="outlined" color="warning" prepend-icon="mdi-swap-horizontal" @click="addTransition">
+        <v-btn size="small" variant="outlined" color="warning" @click="addTransition">
           Add Transition
         </v-btn>
         <v-divider vertical class="mx-2" />
@@ -18,10 +18,9 @@
           :color="isPlaying ? 'primary' : 'default'"
           variant="outlined"
           @click="togglePlay"
-          :prepend-icon="isPlaying ? 'mdi-pause' : 'mdi-play'"
         >{{ isPlaying ? 'Pause' : 'Play' }}</v-btn>
-        <v-btn size="small" variant="outlined" prepend-icon="mdi-stop" @click="stopAll">Stop</v-btn>
-        <v-btn size="small" color="primary" prepend-icon="mdi-lightning-bolt" @click="recompileStack">
+        <v-btn size="small" variant="outlined" @click="stopAll">Stop</v-btn>
+        <v-btn size="small" color="primary" @click="recompileStack">
           Compile Stack
         </v-btn>
       </div>

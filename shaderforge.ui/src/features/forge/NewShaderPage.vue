@@ -31,14 +31,12 @@
           :color="isPlaying ? 'primary' : 'default'"
           variant="outlined"
           size="small"
-          prepend-icon="mdi-play-pause"
           @click="togglePlayStop"
         >{{ isPlaying ? 'Pause' : 'Play' }}</v-btn>
         <v-btn
           color="primary"
           variant="outlined"
           size="small"
-          prepend-icon="mdi-refresh"
           @click="recompileShader"
         >Compile</v-btn>
         <v-btn
@@ -304,6 +302,8 @@ const saveShader = async () => {
 .adv-switch :deep(.v-input__control),
 .adv-switch :deep(.v-selection-control) {
   min-height: unset !important;
+  /* Tighten the gap between the toggle track and "Advanced" label */
+  column-gap: 4px;
 }
 
 /* 28px matches the height of size="small" v-btn in Vuetify 3 compact mode */
