@@ -75,7 +75,7 @@ The central design principle is **zero GPU boilerplate**. A web developer should
 
 > All WebGPU complexity lives here so no other layer needs to touch the GPU API directly.
 
-**Implemented in `webgpu-shader-engine/`**
+**Implemented in `shaderforge-engine/`**
 
 - `ShaderEffect` — compile WGSL, render to `<canvas>`, auto-manage the render loop
   - Auto-injects `BuiltinUniforms` struct into every shader
@@ -317,7 +317,7 @@ shaderforge/
 │       │   └── profile/          # User profile
 │       ├── components/           # NavBar, MonacoEditor, …
 │       └── services/             # API client
-└── webgpu-shader-engine/         # @shaderforge/engine NPM package
+└── shaderforge-engine/         # @shaderforge/engine NPM package
     ├── src/
     │   ├── index.ts              # ShaderEffect, createEffect — public API
     │   ├── passes.ts             # LayerStack, RenderPass, PostFx ping-pong
@@ -348,7 +348,7 @@ shaderforge/
 
 ```bash
 # Engine package
-cd webgpu-shader-engine && npm install && npm run build
+cd shaderforge-engine && npm install && npm run build
 
 # Backend
 cd ShaderForge.API && dotnet run

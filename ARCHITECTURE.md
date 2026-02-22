@@ -44,7 +44,7 @@ Pure WebGPU abstraction. **Zero runtime dependencies.** Users should be able to 
 | `TextureBinding` / `t0..t3` | `iChannel0..3` via `LayerStack` ping-pong |
 | `Scene` + `postFxChain` | `LayerStack.scene()` + `.postFx()` |
 
-**Current status:** M1 complete (see `webgpu-shader-engine/`). Exports `ShaderEffect`, `LayerStack`, `createEffect`, `UniformBuffer`, `DEFAULT_FRAGMENT_WGSL`, `DEFAULT_VERTEX_WGSL`, `BUILTIN_UNIFORMS_WGSL`, `CHANNEL_BINDINGS_WGSL`.
+**Current status:** M1 complete (see `shaderforge-engine/`). Exports `ShaderEffect`, `LayerStack`, `createEffect`, `UniformBuffer`, `DEFAULT_FRAGMENT_WGSL`, `DEFAULT_VERTEX_WGSL`, `BUILTIN_UNIFORMS_WGSL`, `CHANNEL_BINDINGS_WGSL`.
 
 ### 1.2 ShaderForgePlayer (`@shaderforge/player`)
 
@@ -57,7 +57,7 @@ Beat-sync and playback orchestration. Currently lives inside `@shaderforge/engin
 | Tracker timeline | `Tracker` class (GNU-Rocket style, keyframe interpolation) |
 | Playlist / scene sequencing | `Playlist` class (beat-anchored transitions) |
 
-**Current status:** Implemented inside `webgpu-shader-engine/src/tracker.ts` and re-exported from `@shaderforge/engine`. **Needs extraction** into `@shaderforge/player`.
+**Current status:** Implemented inside `shaderforge-engine/src/tracker.ts` and re-exported from `@shaderforge/engine`. **Needs extraction** into `@shaderforge/player`.
 
 ### 1.3 ShaderForgePortal
 
@@ -176,8 +176,8 @@ Comments are a high-risk feature. The plan:
 
 | Milestone | Status | Notes |
 |-----------|--------|-------|
-| M1 — `@shaderforge/engine` | ✅ Done | `webgpu-shader-engine/` — `ShaderEffect`, `LayerStack`, `UniformBuffer`, built-in uniforms |
-| M2 — Backend API (DTO/schema) | 🟡 Partial | Shader DTO extended; in-memory stores only; no DB yet |
+| M1 — `@shaderforge/engine` | ✅ Done | `shaderforge-engine/` — `ShaderEffect`, `LayerStack`, `UniformBuffer`, built-in uniforms |
+| M2 — Backend API (DTO/schema) | ✅ Done | Shader CRUD, User auth endpoints; `IUserService` + `ITokenService` implemented; in-memory stores |
 | M3 — Effect View | 🟡 Partial | Monaco editor + canvas preview wired to engine; save/load incomplete |
 | M4 — Demo View (Tracker UI) | 🟡 Partial | Transport bar + row grid + inspector; audio upload not yet implemented |
 | M5 — Scene View (LayerStack) | 🟡 Engine done | `LayerStack` API complete; portal UI not yet wired |
@@ -194,7 +194,7 @@ Comments are a high-risk feature. The plan:
 
 ```bash
 # 1. Build the engine package first (required for UI)
-cd webgpu-shader-engine
+cd shaderforge-engine
 npm install
 npm run build
 
@@ -204,11 +204,11 @@ dotnet run
 
 # 3. Start the frontend (in a separate terminal)
 cd ../shaderforge.ui
-npm install   # installs @shaderforge/engine from ../webgpu-shader-engine
+npm install   # installs @shaderforge/engine from ../shaderforge-engine
 npm run serve
 ```
 
-> **Note:** `@shaderforge/engine` is referenced as a local `file:` dependency in `shaderforge.ui/package.json`. You must run `npm run build` in `webgpu-shader-engine/` before `npm install` in `shaderforge.ui/` to ensure the compiled `dist/` output is available. A `postinstall` hook or monorepo tooling (e.g., `npm workspaces`) is on the roadmap for a smoother DX.
+> **Note:** `@shaderforge/engine` is referenced as a local `file:` dependency in `shaderforge.ui/package.json`. You must run `npm run build` in `shaderforge-engine/` before `npm install` in `shaderforge.ui/` to ensure the compiled `dist/` output is available. A `postinstall` hook or monorepo tooling (e.g., `npm workspaces`) is on the roadmap for a smoother DX.
 
 ---
 

@@ -25,6 +25,8 @@ internal class Program
         builder.Services.AddScoped<IShaderRepository, InMemoryShaderRepository>();
         builder.Services.AddScoped<IUserStore, InMemoryUserStore>();
         builder.Services.AddScoped<IShaderStore, InMemoryShaderStore>();
+        builder.Services.AddScoped<IUserService, InMemoryUserService>();
+        builder.Services.AddSingleton<ITokenService, InMemoryTokenService>();
 
         builder.Services.AddCors(options =>
         {
