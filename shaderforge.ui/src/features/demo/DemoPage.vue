@@ -49,7 +49,7 @@
         :class="{ 'panel-hidden': activePanel !== 'tracker' }"
       >
         <div class="tracker-header">
-          <div class="row-label">Row</div>
+          <div class="row-label">Bar:Beat</div>
           <div v-for="name in trackNames" :key="name" class="track-header">{{ name }}</div>
         </div>
         <div class="tracker-rows" ref="trackerRowsEl">
@@ -63,15 +63,16 @@
               'current-row':  row === currentRow,
             }"
           >
-            <div class="row-label">{{ row }}</div>
+            <div class="row-label">{{ rowToBarBeat(row) }}</div>
             <div
               v-for="name in trackNames"
               :key="name"
               class="tracker-cell"
-              :class="{ 'has-keyframe': hasKeyframe(name, row) }"
-              :title="`${name} @ row ${row}: ${getValueAt(name, row).toFixed(3)}`"
+              :class="[`col-${name.replace(' ', '-').toLowerCase()}`, { 'has-keyframe': hasKeyframe(name, row) }]"
+              :title="`${name} @ ${rowToBarBeat(row)}: ${getValueAt(name, row)}`"
             >
-              <span v-if="hasKeyframe(name, row)" class="keyframe-dot">◆</span>
+              <span v-if="hasKeyframe(name, row)" class="keyframe-val">{{ formatCell(name, getValueAt(name, row)) }}</span>
+              <span v-else class="cell-empty">—</span>
             </div>
           </div>
         </div>
@@ -85,7 +86,7 @@
         <div class="inspector-title">Track Values</div>
         <div v-for="name in trackNames" :key="name" class="track-value-row">
           <span class="track-name">{{ name }}</span>
-          <span class="track-value">{{ getValueAt(name, currentRow).toFixed(4) }}</span>
+          <span class="track-value">{{ formatCell(name, getValueAt(name, currentRow)) }}</span>
         </div>
       </div>
     </div>
@@ -106,18 +107,52 @@ const ROWS_BEFORE_CURRENT = 4;
 const VISIBLE_ROW_COUNT = 64;
 
 const trackerConfig: Record<string, Array<{ row: number; value: number; interpolation?: 'linear' | 'smooth' | 'constant' }>> = {
-  brightness: [
-    { row: 0,   value: 0.2, interpolation: 'linear' },
-    { row: 16,  value: 1.0, interpolation: 'smooth' },
-    { row: 32,  value: 0.5, interpolation: 'linear' },
-    { row: 64,  value: 0.8, interpolation: 'smooth' },
-    { row: 96,  value: 0.2, interpolation: 'linear' },
-    { row: 127, value: 0.2 },
+  Scene: [
+    { row: 0,   value: 1, interpolation: 'constant' },
+    { row: 32,  value: 2, interpolation: 'constant' },
+    { row: 64,  value: 1, interpolation: 'constant' },
+    { row: 96,  value: 3, interpolation: 'constant' },
+    { row: 127, value: 1 },
   ],
-  hueShift: [
-    { row: 0,   value: 0.0, interpolation: 'linear' },
-    { row: 64,  value: 3.14 },
-    { row: 127, value: 6.28 },
+  Offset: [
+    { row: 0,   value: 0.0,  interpolation: 'linear' },
+    { row: 32,  value: 0.5,  interpolation: 'smooth' },
+    { row: 64,  value: 1.0,  interpolation: 'linear' },
+    { row: 96,  value: 0.25, interpolation: 'smooth' },
+    { row: 127, value: 0.0 },
+  ],
+  Transition: [
+    { row: 0,   value: 0, interpolation: 'constant' },
+    { row: 32,  value: 1, interpolation: 'constant' },
+    { row: 48,  value: 0, interpolation: 'constant' },
+    { row: 64,  value: 2, interpolation: 'constant' },
+    { row: 80,  value: 0, interpolation: 'constant' },
+    { row: 96,  value: 1, interpolation: 'constant' },
+    { row: 112, value: 0, interpolation: 'constant' },
+  ],
+  'Trans Time': [
+    { row: 0,   value: 0.50, interpolation: 'constant' },
+    { row: 32,  value: 1.00, interpolation: 'constant' },
+    { row: 64,  value: 0.25, interpolation: 'constant' },
+    { row: 96,  value: 0.75, interpolation: 'constant' },
+  ],
+  Music: [
+    { row: 0,   value: 0, interpolation: 'constant' },
+    { row: 16,  value: 1, interpolation: 'constant' },
+    { row: 17,  value: 0, interpolation: 'constant' },
+    { row: 48,  value: 1, interpolation: 'constant' },
+    { row: 49,  value: 0, interpolation: 'constant' },
+    { row: 80,  value: 1, interpolation: 'constant' },
+    { row: 81,  value: 0, interpolation: 'constant' },
+  ],
+  OneShot: [
+    { row: 0,   value: 0, interpolation: 'constant' },
+    { row: 32,  value: 1, interpolation: 'constant' },
+    { row: 33,  value: 0, interpolation: 'constant' },
+    { row: 64,  value: 1, interpolation: 'constant' },
+    { row: 65,  value: 0, interpolation: 'constant' },
+    { row: 96,  value: 1, interpolation: 'constant' },
+    { row: 97,  value: 0, interpolation: 'constant' },
   ],
 };
 
@@ -149,6 +184,28 @@ function hasKeyframe(name: string, row: number): boolean {
 
 function getValueAt(name: string, row: number): number {
   return tracker?.getValueAt(name, row) ?? 0;
+}
+
+/** Format row number as Bar:Beat (e.g. row 4 @ 4 rows/beat, 4 beats/bar = "1:2") */
+function rowToBarBeat(row: number): string {
+  const barNumber = Math.floor(row / (rowsPerBeat * beatsPerBar)) + 1;
+  const beat      = Math.floor((row % (rowsPerBeat * beatsPerBar)) / rowsPerBeat) + 1;
+  return `${barNumber}:${beat}`;
+}
+
+const EMPTY_CELL = '·';
+
+/** Format a tracker cell value based on column type */
+function formatCell(name: string, value: number): string {
+  switch (name) {
+    case 'Scene':      return `S${Math.round(value)}`;
+    case 'Transition': return value > 0 ? `T${Math.round(value)}` : EMPTY_CELL;
+    case 'Trans Time': return value.toFixed(2);
+    case 'Offset':     return value.toFixed(2);
+    case 'Music':      return value > 0 ? '▶' : EMPTY_CELL;
+    case 'OneShot':    return value > 0 ? '★' : EMPTY_CELL;
+    default:           return value.toFixed(2);
+  }
 }
 
 function handlePlay() {
@@ -345,36 +402,51 @@ onBeforeUnmount(() => {
 .tracker-row.current-row { background: rgba(64, 192, 255, 0.15); border-left: 2px solid #40c0ff; }
 
 .row-label {
-  width: 34px;
+  width: 44px;
   color: rgba(255, 255, 255, 0.32);
   text-align: right;
   padding-right: 6px;
   flex-shrink: 0;
+  font-size: 0.62rem;
 }
 
 .tracker-header .row-label {
   color: rgba(64, 192, 255, 0.7);
-  font-size: 0.68rem;
+  font-size: 0.62rem;
 }
 
 .track-header {
   flex: 1;
+  min-width: 48px;
   text-align: center;
   color: #40c0ff;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-family: 'Audiowide', monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tracker-cell {
   flex: 1;
+  min-width: 48px;
   text-align: center;
-  color: rgba(255, 255, 255, 0.2);
+  font-size: 0.65rem;
+  font-family: monospace;
 }
 
-.tracker-cell.has-keyframe .keyframe-dot {
-  color: #40c0ff;
-  font-size: 0.62rem;
+.cell-empty {
+  color: rgba(255, 255, 255, 0.1);
 }
+
+/* Per-column keyframe value colors */
+.keyframe-val { font-weight: 600; }
+.col-scene      .keyframe-val { color: #56d3c2; }
+.col-offset     .keyframe-val { color: #6ec2ff; }
+.col-transition .keyframe-val { color: #e0c987; }
+.col-trans-time .keyframe-val { color: #eca493; }
+.col-music      .keyframe-val { color: #96d166; font-size: 0.8rem; }
+.col-oneshot    .keyframe-val { color: #ec714c; font-size: 0.75rem; }
 
 /* ---- Inspector panel ---------------------------------------------------- */
 .inspector-panel {
