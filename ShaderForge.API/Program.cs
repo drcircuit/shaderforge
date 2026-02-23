@@ -100,7 +100,7 @@ internal class Program
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                 ?? throw new InvalidOperationException(
                     "ConnectionStrings:DefaultConnection is required in production. " +
-                    "Set it as a Fly.io secret: flyctl secrets set ConnectionStrings__DefaultConnection=<neon-connection-string>");
+                    "Set it as a Fly.io secret: flyctl secrets set ConnectionStrings__DefaultConnection=\"<neon-connection-string>\"");
             builder.Services.AddDbContext<ShaderForgeDbContext>(options =>
                 options.UseNpgsql(connectionString));
             builder.Services.AddScoped<IShaderRepository, EFShaderRepository>();
@@ -148,6 +148,7 @@ internal class Program
             FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), "thumbnails")),
             RequestPath = "/api/thumbnails"
         });
+        app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
         app.MapControllers();
         app.Run();
     }

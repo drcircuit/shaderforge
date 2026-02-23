@@ -135,7 +135,7 @@
                     :src="channelUrls[n - 1]!"
                     :alt="`iChannel${n - 1} preview`"
                     class="channel-preview"
-                    @error="() => { channelUrls[n - 1] = null }"
+                    @error="clearChannelUrl(n - 1)"
                   />
                 </div>
               </div>
@@ -176,6 +176,7 @@ const compileError = ref<string | null>(null);
 
 // iChannel URL state — users supply hotlinks; no files are stored on the platform
 const channelUrls = ref<(string | null)[]>([null, null, null, null]);
+const clearChannelUrl = (idx: number) => { channelUrls.value[idx] = null; };
 
 // Sphere geometry constants — must match DEFAULT_SPHERE_VERTEX_WGSL
 const SPHERE_SLICES = 32;

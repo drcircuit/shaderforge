@@ -52,7 +52,7 @@ namespace ShaderForge.API.Migrations
                     b.HasIndex("Username")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("ShaderForge.API.Data.DTO.Shader", b =>
@@ -132,7 +132,7 @@ namespace ShaderForge.API.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Shaders");
+                    b.ToTable("Shaders", (string)null);
                 });
 #pragma warning restore 612, 618
         }

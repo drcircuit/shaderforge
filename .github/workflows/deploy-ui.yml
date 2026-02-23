@@ -9,10 +9,47 @@ on:
       - '.github/workflows/deploy-ui.yml'
 
 jobs:
-  deploy:
+  test:
+    name: Lint & Test UI
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install engine dependencies
+        working-directory: shaderforge-engine
+        run: npm install
+
+      - name: Build engine
+        working-directory: shaderforge-engine
+        run: npm run build
+
+      - name: Install UI dependencies
+        working-directory: shaderforge.ui
+        run: npm install
+
+      - name: Lint
+        working-directory: shaderforge.ui
+        run: npm run lint
+
+      - name: Unit tests
+        working-directory: shaderforge.ui
+        run: npm run test:unit
+
+  deploy:
+    name: Deploy to Cloudflare Pages
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    environment: production
 
     steps:
       - uses: actions/checkout@v4

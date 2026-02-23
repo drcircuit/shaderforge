@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test-api:
+    name: Build & Test API
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore ShaderForge.sln
+
+      - name: Build
+        run: dotnet build ShaderForge.sln --no-restore -c Release
+
+      - name: Run tests
+        run: dotnet test ShaderForge.API.Tests/ --no-build -c Release
+
+  test-ui:
+    name: Lint & Test UI
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install engine dependencies
+        working-directory: shaderforge-engine
+        run: npm install
+
+      - name: Build engine
+        working-directory: shaderforge-engine
+        run: npm run build
+
+      - name: Install UI dependencies
+        working-directory: shaderforge.ui
+        run: npm install
+
+      - name: Lint
+        working-directory: shaderforge.ui
+        run: npm run lint
+
+      - name: Unit tests
+        working-directory: shaderforge.ui
+        run: npm run test:unit

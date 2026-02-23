@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths:
       - 'ShaderForge.API/**'
+      - 'ShaderForge.API.Tests/**'
       - 'fly.toml'
       - '.github/workflows/deploy-api.yml'
 
 jobs:
-  deploy:
+  test:
+    name: Test API
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -17,9 +19,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore ShaderForge.sln
+
+      - name: Build
+        run: dotnet build ShaderForge.sln --no-restore -c Release
+
+      - name: Run tests
+        run: dotnet test ShaderForge.API.Tests/ --no-build -c Release
+
+  deploy:
+    name: Deploy to Fly.io
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Deploy to Fly.io
-        run: flyctl deploy --remote-only
+      - name: Deploy
+        run: flyctl deploy --remote-only --wait-timeout 120
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
