@@ -1,128 +1,132 @@
 <template>
   <div class="shader-editor">
-    <!-- Main editor area -->
-    <div class="editor-main">
-      <!-- Code editor section -->
-      <div class="code-section tile">
-        <div class="editors-container" :class="{ 'advanced-mode': advancedMode }">
-          <div 
-            class="vertex-editor"
-            :style="{ height: advancedMode ? '50%' : '0' }"
-          >
-            <MonacoEditor
-              v-model="vertexShaderCode"
-              language="wgsl"
-              :options="editorOptions"
-            />
-          </div>
-          <div 
-            class="fragment-editor"
-            :style="{ height: advancedMode ? '50%' : '100%' }"
-          >
-            <MonacoEditor
-              v-model="fragmentShaderCode"
-              language="wgsl"
-              :options="editorOptions"
-            />
-          </div>
+    <!-- Toolbar row -->
+    <div class="editor-toolbar tile">
+      <div class="toolbar-left">
+        <v-text-field
+          v-model="shaderTitle"
+          label="Shader Title"
+          density="compact"
+          hide-details
+          variant="outlined"
+          class="title-input"
+        />
+        <v-btn-toggle v-model="vertexShaderType" mandatory density="compact" class="type-toggle">
+          <v-btn value="quad" size="small">Quad</v-btn>
+          <v-btn value="cube" size="small">Cube</v-btn>
+          <v-btn value="sphere" size="small">Sphere</v-btn>
+        </v-btn-toggle>
+        <v-switch
+          v-model="advancedMode"
+          label="Advanced"
+          density="compact"
+          hide-details
+          color="primary"
+          class="adv-switch"
+        />
+      </div>
+      <div class="toolbar-right">
+        <span class="shortcut-hint d-none d-sm-inline">Ctrl+R: Recompile &nbsp; Ctrl+E: Play/Pause</span>
+        <v-btn
+          :color="isPlaying ? 'primary' : 'default'"
+          variant="outlined"
+          size="small"
+          @click="togglePlayStop"
+        >{{ isPlaying ? 'Pause' : 'Play' }}</v-btn>
+        <v-btn
+          color="primary"
+          variant="outlined"
+          size="small"
+          @click="recompileShader"
+        >Compile</v-btn>
+        <v-btn
+          :color="isAuthenticated ? 'primary' : 'default'"
+          size="small"
+          @click="saveShader"
+        >{{ isAuthenticated ? 'Save' : 'Save Locally' }}</v-btn>
+      </div>
+    </div>
+
+    <!-- Main panels -->
+    <div class="editor-panels">
+      <!-- Code editor(s) -->
+      <div class="code-panel tile">
+        <div class="code-panel-tabs" v-if="advancedMode">
+          <v-tabs v-model="activeTab" density="compact" color="primary" class="editor-tabs">
+            <v-tab value="fragment">Fragment Shader</v-tab>
+            <v-tab value="vertex">Vertex Shader</v-tab>
+          </v-tabs>
         </div>
-        <div class="shortcut-hints">
-          <span>Ctrl+R: Recompile Shader</span>
-          <span>Ctrl+E: Toggle Play/Stop</span>
+        <div v-else class="panel-label">Fragment Shader</div>
+        <div class="editor-body">
+          <MonacoEditor
+            v-show="!advancedMode || activeTab === 'fragment'"
+            v-model="fragmentShaderCode"
+            language="wgsl"
+            :options="editorOptions"
+            class="fill-editor"
+          />
+          <MonacoEditor
+            v-show="advancedMode && activeTab === 'vertex'"
+            v-model="vertexShaderCode"
+            language="wgsl"
+            :options="editorOptions"
+            class="fill-editor"
+          />
         </div>
       </div>
 
-      <!-- Preview section -->
-      <div class="preview-section tile">
-        <!-- Header section -->
-        <div class="editor-header">
-          <v-text-field
-            v-model="shaderTitle"
-            label="Shader Title"
-            class="title-input"
-          />
-          <v-textarea
-            v-model="shaderDescription"
-            label="Description"
-            rows="2"
-            class="description-input"
-          />
-          <v-switch
-            v-model="isPrivate"
-            label="Private Shader"
-            class="privacy-switch"
-          />
-          <div class="shader-type-selector">
-            <v-btn-toggle v-model="vertexShaderType" mandatory>
-              <v-btn value="quad">Viewport Quad</v-btn>
-              <v-btn value="cube">Textured Cube</v-btn>
-              <v-btn value="sphere">Ico Sphere</v-btn>
-            </v-btn-toggle>
-            <v-switch
-              v-model="advancedMode"
-              label="Advanced Mode"
-              class="advanced-switch"
-            />
-          </div>
-        </div>
+      <!-- Preview + metadata -->
+      <div class="preview-panel tile">
+        <div class="panel-label">Preview</div>
         <div ref="previewContainer" class="preview-container">
           <canvas ref="previewCanvas" class="preview-canvas"></canvas>
           <div v-if="compileError" class="compile-error-overlay">
             <pre>{{ compileError }}</pre>
           </div>
         </div>
-        
-        <!-- Asset tray -->
-        <div class="asset-tray">
-          <div class="asset-list">
-            <div 
-              v-for="asset in assets" 
-              :key="asset.id" 
-              class="asset-item"
-            >
-              <v-img
-                v-if="asset.type === 'texture'"
-                :src="asset.thumbnail"
-                class="asset-thumbnail"
-              />
-              <v-icon v-else>
-                {{ getAssetIcon(asset.type) }}
-              </v-icon>
-              <span class="asset-name">{{ asset.name }}</span>
-            </div>
-            <!-- Empty slots -->
-            <div v-for="i in 5 - assets.length" :key="`empty-${i}`" class="asset-item empty-slot">
-              <v-icon>mdi-plus</v-icon>
-            </div>
-          </div>
-          <v-btn
-            icon
-            class="add-asset-btn"
-            @click="showAssetDialog"
-          >
-            <v-icon>mdi-plus</v-icon>
-          </v-btn>
-        </div>
-      </div>
-    </div>
 
-    <!-- Add save options -->
-    <div class="save-options">
-      <v-btn
-        color="primary"
-        @click="saveShader"
-        class="save-btn"
-      >
-        {{ isAuthenticated ? 'Save to Platform' : 'Save Locally' }}
-      </v-btn>
-      
-      <v-tooltip
-        v-if="!isAuthenticated"
-        activator="parent"
-        location="top"
-      >
-        Login to save shaders to your profile
-      </v-tooltip>
+        <!-- Metadata (collapsible on small screens) -->
+        <v-expansion-panels class="meta-panels" variant="accordion">
+          <v-expansion-panel>
+            <v-expansion-panel-title class="meta-panel-title">Shader Metadata</v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-textarea
+                v-model="shaderDescription"
+                label="Description"
+                rows="2"
+                density="compact"
+                variant="outlined"
+                hide-details
+                class="mb-2"
+              />
+              <v-switch
+                v-model="isPrivate"
+                label="Private Shader"
+                density="compact"
+                hide-details
+                color="primary"
+              />
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+          <v-expansion-panel>
+            <v-expansion-panel-title class="meta-panel-title">Asset Channels (iChannel0–3)</v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <div class="asset-tray">
+                <div
+                  v-for="n in 4"
+                  :key="n"
+                  class="asset-slot"
+                  :title="`iChannel${n - 1}`"
+                >
+                  <v-icon size="20">mdi-plus</v-icon>
+                  <span class="slot-label">iCh{{ n - 1 }}</span>
+                </div>
+              </div>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
+      </div>
     </div>
   </div>
 </template>
@@ -130,7 +134,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import MonacoEditor from '@/components/MonacoEditor.vue';
-import { useRouter } from 'vue-router';
 import { ShaderEffect, DEFAULT_FRAGMENT_WGSL, DEFAULT_VERTEX_WGSL } from '@shaderforge/engine';
 import { webgpuInitError } from '@/utils/webgpu';
 
@@ -140,17 +143,15 @@ const shaderDescription = ref('');
 const isPrivate = ref(false);
 const vertexShaderType = ref('quad');
 const advancedMode = ref(false);
+const activeTab = ref('fragment');
 const vertexShaderCode = ref(DEFAULT_VERTEX_WGSL);
 const fragmentShaderCode = ref(DEFAULT_FRAGMENT_WGSL);
 const previewCanvas = ref<HTMLCanvasElement | null>(null);
-const assets = ref<any[]>([]);
 const isPlaying = ref(true);
 const compileError = ref<string | null>(null);
 
-// ShaderEffect instance
 let effect: ShaderEffect | null = null;
 
-// Editor configuration
 const editorOptions = {
   theme: 'shaderforge-dark',
   minimap: { enabled: false },
@@ -162,7 +163,6 @@ const editorOptions = {
   padding: { top: 16, bottom: 16 },
 };
 
-// Initialize ShaderEffect
 onMounted(async () => {
   if (previewCanvas.value) {
     try {
@@ -175,11 +175,9 @@ onMounted(async () => {
         effect.play();
       }
     } catch (error) {
-      console.error('Failed to initialize ShaderEffect:', error);
       compileError.value = webgpuInitError(error);
     }
   }
-
   window.addEventListener('keydown', handleKeyDown);
 });
 
@@ -189,7 +187,6 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeyDown);
 });
 
-// Handle keyboard shortcuts
 const handleKeyDown = (event: KeyboardEvent) => {
   if (event.ctrlKey && event.key === 'r') {
     event.preventDefault();
@@ -200,7 +197,6 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
 };
 
-// Recompile shader (fragment first, vertex second — matches ShaderEffect.compile signature)
 const recompileShader = async () => {
   if (effect) {
     try {
@@ -212,7 +208,6 @@ const recompileShader = async () => {
   }
 };
 
-// Toggle play/stop
 const togglePlayStop = () => {
   if (!effect) return;
   if (isPlaying.value) {
@@ -223,41 +218,18 @@ const togglePlayStop = () => {
   isPlaying.value = !isPlaying.value;
 };
 
-// Asset handling
-const getAssetIcon = (type: string) => {
-  switch (type) {
-    case 'cubemap': return 'mdi-cube-outline';
-    case 'audio': return 'mdi-waveform';
-    default: return 'mdi-file';
-  }
-};
+const isAuthenticated = false;
 
-const showAssetDialog = () => {
-  // Implement asset upload dialog
-};
-
-const router = useRouter();
-const isAuthenticated = false; // Replace with your auth state
-
-// Save functionality
 const saveShader = async () => {
-  if (isAuthenticated) {
-    // Save to API
-    try {
-      // API save logic
-    } catch (error) {
-      console.error('Failed to save shader:', error);
-    }
-  } else {
+  if (!isAuthenticated) {
     const shader = {
       id: crypto.randomUUID(),
       title: shaderTitle.value,
       description: shaderDescription.value,
       vertexShader: vertexShaderCode.value,
       fragmentShader: fragmentShaderCode.value,
-      created: new Date().toISOString()
+      created: new Date().toISOString(),
     };
-
     const localShaders = JSON.parse(localStorage.getItem('localShaders') || '[]');
     localShaders.push(shader);
     localStorage.setItem('localShaders', JSON.stringify(localShaders));
@@ -266,50 +238,155 @@ const saveShader = async () => {
 </script>
 
 <style scoped>
+/* Full-height no-scroll layout — fills the v-main area */
 .shader-editor {
   height: 100%;
-  padding: 1.2rem;
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-.editor-main {
+/* ---- Tile ---------------------------------------------------------------- */
+.tile {
+  background: rgba(16, 18, 24, 0.92);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(64, 192, 255, 0.15);
+  border-radius: 8px;
+}
+
+/* ---- Toolbar ------------------------------------------------------------ */
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  flex-shrink: 0;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.title-input {
+  max-width: 220px;
+  min-width: 120px;
+}
+
+.type-toggle {
+  flex-shrink: 0;
+}
+
+.adv-switch {
+  flex-shrink: 0;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* Remove Vuetify 3 internal vertical padding from the switch so it aligns
+   with the compact buttons on the same toolbar row */
+.adv-switch :deep(.v-input__control),
+.adv-switch :deep(.v-selection-control) {
+  min-height: unset !important;
+  /* Tighten the gap between the toggle track and "Advanced" label */
+  column-gap: 4px;
+}
+
+/* 28px matches the height of size="small" v-btn in Vuetify 3 compact mode */
+.adv-switch :deep(.v-selection-control__wrapper) {
+  height: 28px;
+}
+
+.adv-switch :deep(.v-label) {
+  font-size: 0.82rem;
+  opacity: 0.85;
+}
+
+.shortcut-hint {
+  font-size: 0.72rem;
+  color: rgba(64, 192, 255, 0.5);
+  white-space: nowrap;
+}
+
+/* ---- Main panels -------------------------------------------------------- */
+.editor-panels {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1.2rem;
-  height: calc(100% - 120px);
+  gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
 }
 
-.editors-container {
+/* ---- Code panel --------------------------------------------------------- */
+.code-panel {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  height: calc(100% - 48px);
-  transition: all 0.3s ease;
+  overflow: hidden;
+  min-height: 0;
 }
 
-.vertex-editor,
-.fragment-editor {
-  border-radius: 4px;
+.code-panel-tabs,
+.panel-label {
+  flex-shrink: 0;
+  padding: 0 0.5rem;
+  border-bottom: 1px solid rgba(64, 192, 255, 0.15);
+}
+
+.panel-label {
+  font-family: 'Audiowide', sans-serif;
+  font-size: 0.75rem;
+  color: #40c0ff;
+  padding: 0.4rem 0.75rem;
+}
+
+.editor-tabs {
+  min-height: 36px !important;
+}
+
+.editor-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.fill-editor {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---- Preview panel ------------------------------------------------------ */
+.preview-panel {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  transition: height 0.3s ease;
-  background: #1e1e1e; /* Add a background color to ensure visibility */
+  min-height: 0;
 }
 
 .preview-container {
   position: relative;
-  width: 100%;
-  aspect-ratio: 16/10;
+  flex: 1;
+  min-height: 0;
   background: #000;
-  border-radius: 4px;
-  overflow: hidden;
+  border-radius: 0 0 2px 2px;
 }
 
 .preview-canvas {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
 }
@@ -319,110 +396,94 @@ const saveShader = async () => {
   bottom: 0;
   left: 0;
   right: 0;
-  background: rgba(200, 0, 0, 0.85);
+  background: rgba(200, 0, 0, 0.88);
   color: #fff;
   font-family: monospace;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   padding: 8px 12px;
   max-height: 40%;
   overflow-y: auto;
-  /* Required so \n line-breaks in the error message string render in HTML */
   white-space: pre-wrap;
   word-break: break-word;
   z-index: 10;
 }
 
-.shortcut-hints {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+/* ---- Metadata expansion panels ----------------------------------------- */
+.meta-panels {
+  flex-shrink: 0;
+  border-top: 1px solid rgba(64, 192, 255, 0.1);
 }
 
-/* Responsive design */
-@media (max-width: 1200px) {
-  .editor-main {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto auto;
-  }
-
-  .code-section,
-  .preview-section {
-    width: 100%;
-    height: auto;
-  }
-
-  .editors-container {
-    height: auto;
-  }
-
-  .vertex-editor,
-  .fragment-editor {
-    height: auto;
-  }
+.meta-panel-title {
+  font-size: 0.78rem !important;
+  color: rgba(64, 192, 255, 0.75) !important;
+  min-height: 36px !important;
+  padding: 0 12px !important;
 }
 
-.save-options {
-  position: absolute;
-  bottom: 1.2rem;
-  right: 1.2rem;
-  z-index: 10;
-}
-
-.save-btn {
-  min-width: 150px;
-}
-
+/* ---- Asset tray --------------------------------------------------------- */
 .asset-tray {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.asset-list {
-  display: flex;
-  gap: 1rem;
+  gap: 0.6rem;
   flex-wrap: wrap;
 }
 
-.asset-item {
-  width: 80px;
-  height: 80px;
+.asset-slot {
+  width: 64px;
+  height: 64px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-.asset-item:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-.empty-slot {
   background: rgba(255, 255, 255, 0.05);
-  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border: 1px dashed rgba(64, 192, 255, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+  gap: 4px;
 }
 
-.asset-thumbnail {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 8px;
+.asset-slot:hover {
+  background: rgba(64, 192, 255, 0.1);
+  border-color: rgba(64, 192, 255, 0.4);
 }
 
-.add-asset-btn {
-  align-self: center;
-  margin-top: 1rem;
+.slot-label {
+  font-size: 0.65rem;
+  color: rgba(64, 192, 255, 0.6);
+  font-family: monospace;
+}
+
+/* ---- Responsive --------------------------------------------------------- */
+
+/* Tablet: stack editor + preview vertically */
+@media (max-width: 959px) {
+  .editor-panels {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+
+  .shader-editor {
+    overflow-y: auto;
+    height: auto;
+    min-height: 100%;
+  }
+
+  .editor-panels {
+    min-height: 600px;
+  }
+}
+
+/* Mobile: tighten toolbar */
+@media (max-width: 599px) {
+  .toolbar-left,
+  .toolbar-right {
+    width: 100%;
+  }
+
+  .title-input {
+    max-width: 100%;
+    flex: 1 1 100%;
+  }
 }
 </style>
