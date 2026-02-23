@@ -400,3 +400,8 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Local environment secrets — never commit
+.env
+.env.*
+!.env.example

@@ -100,7 +100,7 @@ internal class Program
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
                 ?? throw new InvalidOperationException(
                     "ConnectionStrings:DefaultConnection is required in production. " +
-                    "Set it as a Fly.io secret: flyctl secrets set ConnectionStrings__DefaultConnection=\"<neon-connection-string>\"");
+                    "Set it in the .env file: ConnectionStrings__DefaultConnection=\"<postgres-connection-string>\"");
             builder.Services.AddDbContext<ShaderForgeDbContext>(options =>
                 options.UseNpgsql(connectionString));
             builder.Services.AddScoped<IShaderRepository, EFShaderRepository>();
