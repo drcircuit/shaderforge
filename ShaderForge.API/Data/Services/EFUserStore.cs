@@ -15,7 +15,7 @@ namespace ShaderForge.API.Data.Services
         public async Task<ShaderAuthor> FindByUsernameAsync(string username)
         {
             var user = await _db.Users.FirstOrDefaultAsync(u => u.Username == username);
-            return user == null ? null! : new ShaderAuthor { Username = user.Username, Email = user.Email };
+            return user == null ? null! : new ShaderAuthor { Username = user.Username, Email = user.Email ?? string.Empty };
         }
 
         public async Task<bool> ValidateCredentialsAsync(string username, string password)

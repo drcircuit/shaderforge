@@ -118,31 +118,25 @@
           <v-expansion-panel>
             <v-expansion-panel-title class="meta-panel-title">Asset Channels (iChannel0–3)</v-expansion-panel-title>
             <v-expansion-panel-text>
-              <div class="asset-tray">
-                <div
-                  v-for="n in 4"
-                  :key="n"
-                  class="asset-slot"
-                  :title="`iChannel${n - 1}: click to upload image`"
-                  @click="openChannelPicker(n - 1)"
-                >
-                  <input
-                    :ref="setChannelInputRef(n - 1)"
-                    type="file"
-                    accept="image/*"
-                    style="display:none"
-                    @change="(e) => onChannelFileChange(n - 1, e)"
+              <div class="channel-inputs">
+                <div v-for="n in 4" :key="n" class="channel-row">
+                  <v-text-field
+                    v-model="channelUrls[n - 1]"
+                    :label="`iChannel${n - 1} URL`"
+                    density="compact"
+                    variant="outlined"
+                    hide-details
+                    placeholder="https://…"
+                    clearable
+                    class="channel-url-field"
                   />
                   <img
-                    v-if="channelImages[n - 1]"
-                    :src="channelImages[n - 1]!"
-                    :alt="`Uploaded texture for iChannel${n - 1}`"
-                    class="slot-thumbnail"
+                    v-if="channelUrls[n - 1]"
+                    :src="channelUrls[n - 1]!"
+                    :alt="`iChannel${n - 1} preview`"
+                    class="channel-preview"
+                    @error="() => { channelUrls[n - 1] = null }"
                   />
-                  <template v-else>
-                    <v-icon size="20">mdi-plus</v-icon>
-                  </template>
-                  <span class="slot-label">iCh{{ n - 1 }}</span>
                 </div>
               </div>
             </v-expansion-panel-text>
@@ -180,13 +174,8 @@ const previewCanvas = ref<HTMLCanvasElement | null>(null);
 const isPlaying = ref(true);
 const compileError = ref<string | null>(null);
 
-// iChannel texture upload state
-const channelImages = ref<(string | null)[]>([null, null, null, null]);
-const channelInputRefs = ref<(HTMLInputElement | null)[]>([null, null, null, null]);
-
-const setChannelInputRef = (idx: number) => (el: unknown) => {
-  channelInputRefs.value[idx] = el as HTMLInputElement | null;
-};
+// iChannel URL state — users supply hotlinks; no files are stored on the platform
+const channelUrls = ref<(string | null)[]>([null, null, null, null]);
 
 // Sphere geometry constants — must match DEFAULT_SPHERE_VERTEX_WGSL
 const SPHERE_SLICES = 32;
@@ -280,25 +269,6 @@ const togglePlayStop = () => {
   isPlaying.value = !isPlaying.value;
 };
 
-// iChannel file upload
-const openChannelPicker = (slotIndex: number) => {
-  channelInputRefs.value[slotIndex]?.click();
-};
-
-const onChannelFileChange = (slotIndex: number, event: Event) => {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
-  const url = URL.createObjectURL(file);
-  // Revoke previous blob URL if any
-  if (channelImages.value[slotIndex]) {
-    URL.revokeObjectURL(channelImages.value[slotIndex]!);
-  }
-  channelImages.value[slotIndex] = url;
-  // Reset input so the same file can be re-selected
-  input.value = '';
-};
-
 const { isAuthenticated } = useAuth();
 const saveError = ref<string | null>(null);
 const saveSuccess = ref(false);
@@ -314,6 +284,10 @@ const saveShader = async () => {
         vertexShaderCode: vertexShaderCode.value,
         description: shaderDescription.value,
         isPublic: !isPrivate.value,
+        channel0Url: channelUrls.value[0] ?? undefined,
+        channel1Url: channelUrls.value[1] ?? undefined,
+        channel2Url: channelUrls.value[2] ?? undefined,
+        channel3Url: channelUrls.value[3] ?? undefined,
       });
       saveSuccess.value = true;
     } catch (error: unknown) {
@@ -528,49 +502,30 @@ const saveShader = async () => {
   padding: 0 12px !important;
 }
 
-/* ---- Asset tray --------------------------------------------------------- */
-.asset-tray {
-  display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-
-.asset-slot {
-  width: 64px;
-  height: 64px;
+/* ---- Asset channel URL inputs ------------------------------------------ */
+.channel-inputs {
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
+}
+
+.channel-row {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px dashed rgba(64, 192, 255, 0.2);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.2s;
-  gap: 4px;
-  position: relative;
-  overflow: hidden;
+  gap: 0.5rem;
 }
 
-.asset-slot:hover {
-  background: rgba(64, 192, 255, 0.1);
-  border-color: rgba(64, 192, 255, 0.4);
+.channel-url-field {
+  flex: 1;
 }
 
-.slot-label {
-  font-size: 0.65rem;
-  color: rgba(64, 192, 255, 0.6);
-  font-family: monospace;
-}
-
-.slot-thumbnail {
-  width: 100%;
-  height: 100%;
+.channel-preview {
+  width: 40px;
+  height: 40px;
   object-fit: cover;
   border-radius: 4px;
-  position: absolute;
-  inset: 0;
-  opacity: 0.85;
+  border: 1px solid rgba(64, 192, 255, 0.2);
+  flex-shrink: 0;
 }
 
 /* ---- Responsive --------------------------------------------------------- */

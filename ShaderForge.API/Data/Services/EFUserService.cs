@@ -24,7 +24,7 @@ namespace ShaderForge.API.Data.Services
             {
                 Id = Guid.NewGuid().ToString(),
                 Username = dto.Username,
-                Email = dto.Email ?? string.Empty,
+                Email = dto.Email,
                 PasswordHash = _hasher.HashPassword(dto.Username, dto.Password),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
