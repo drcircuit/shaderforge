@@ -36,6 +36,26 @@ import { BUILTIN_UNIFORMS_WGSL, CHANNEL_BINDINGS_WGSL, DEFAULT_VERTEX_WGSL } fro
 import type { UniformBuffer } from './uniforms.js';
 
 // ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Format WebGPU shader compilation messages as a human-readable string with
+ * stage label, line number and column position.
+ *
+ * @internal  Also used by ShaderEffect.compile() in index.ts.
+ */
+export function formatCompilationErrors(
+  messages: readonly GPUCompilationMessage[],
+  stage: string,
+): string {
+  return messages
+    .filter(m => m.type === 'error')
+    .map(m => `${stage} line ${m.lineNum}:${m.linePos} — ${m.message}`)
+    .join('\n');
+}
+
+// ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
 
@@ -360,18 +380,38 @@ export class LayerStack {
     vertSrc: string,
     label: string,
   ): Promise<GPURenderPipeline> {
-    // Prepend the built-in uniform struct and channel binding declarations
-    const fullFrag = BUILTIN_UNIFORMS_WGSL + '\n' + CHANNEL_BINDINGS_WGSL + '\n' + fragSrc;
+    // Strip the BuiltinUniforms preamble if the caller already included it
+    // (e.g. when DEFAULT_FRAGMENT_WGSL is used directly).  The struct must
+    // not be declared twice or WGSL compilation will fail.
+    // We detect this by looking for the struct declaration itself.
+    const preambleMarker = 'struct BuiltinUniforms';
+    const cleanFrag = fragSrc.includes(preambleMarker)
+      ? CHANNEL_BINDINGS_WGSL + '\n' + fragSrc
+      : BUILTIN_UNIFORMS_WGSL + '\n' + CHANNEL_BINDINGS_WGSL + '\n' + fragSrc;
+
+    // Create shader modules then check compilation info for detailed errors
+    const vertModule = device.createShaderModule({ code: vertSrc,    label: `sf:vert:${label}` });
+    const fragModule = device.createShaderModule({ code: cleanFrag,  label: `sf:frag:${label}` });
+
+    const [vertInfo, fragInfo] = await Promise.all([
+      vertModule.getCompilationInfo(),
+      fragModule.getCompilationInfo(),
+    ]);
+
+    const vertErrText = formatCompilationErrors(vertInfo.messages, 'vertex');
+    const fragErrText = formatCompilationErrors(fragInfo.messages, 'fragment');
+
+    if (vertErrText || fragErrText) {
+      const errText = [vertErrText, fragErrText].filter(Boolean).join('\n');
+      throw new Error(errText || 'Shader compilation failed');
+    }
 
     return device.createRenderPipelineAsync({
       label: `sf:pass:${label}`,
       layout,
-      vertex: {
-        module: device.createShaderModule({ code: vertSrc, label: `sf:vert:${label}` }),
-        entryPoint: 'main',
-      },
+      vertex: { module: vertModule, entryPoint: 'main' },
       fragment: {
-        module: device.createShaderModule({ code: fullFrag, label: `sf:frag:${label}` }),
+        module: fragModule,
         entryPoint: 'main',
         targets: [{ format }],
       },

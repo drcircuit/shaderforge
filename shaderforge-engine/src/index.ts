@@ -31,6 +31,9 @@ export type { ChannelInput, SceneDescriptor } from './passes.js';
 export {
   DEFAULT_VERTEX_WGSL,
   DEFAULT_FRAGMENT_WGSL,
+  DEFAULT_SCENE_FRAGMENT_WGSL,
+  DEFAULT_CUBE_VERTEX_WGSL,
+  DEFAULT_SPHERE_VERTEX_WGSL,
   BUILTIN_UNIFORMS_WGSL,
   CHANNEL_BINDINGS_WGSL,
 } from './defaults.js';
@@ -40,7 +43,7 @@ export { UniformBuffer, BUILTIN_BUFFER_SIZE } from './uniforms.js';
 import { DEFAULT_VERTEX_WGSL, DEFAULT_FRAGMENT_WGSL } from './defaults.js';
 import { UniformBuffer } from './uniforms.js';
 import { Tracker } from './tracker.js';
-import { LayerStack } from './passes.js';
+import { LayerStack, formatCompilationErrors } from './passes.js';
 import type { BeatClockState } from './tracker.js';
 
 // ---------------------------------------------------------------------------
@@ -113,6 +116,8 @@ export class ShaderEffect {
   private pipeline: GPURenderPipeline | null = null;
   private bindGroupLayout!: GPUBindGroupLayout;
   private bindGroup: GPUBindGroup | null = null;
+  /** Number of vertices to draw in the single-pass path. */
+  private vertexCount = 6;
 
   private uniforms!: UniformBuffer;
 
@@ -208,14 +213,32 @@ export class ShaderEffect {
    * Not used when a `LayerStack` was provided at creation time.
    *
    * The `BuiltinUniforms` struct is prepended automatically.
+   *
+   * @param vertexCount  Number of vertices to draw.  Defaults to 6 (fullscreen
+   *                     quad).  Pass 36 for a cube or 3072 for a UV sphere.
    */
   async compile(
     fragmentShader: string,
     vertexShader: string = DEFAULT_VERTEX_WGSL,
+    vertexCount = 6,
   ): Promise<CompileResult> {
     try {
       const vertModule = this.device.createShaderModule({ code: vertexShader, label: 'sf:vert' });
       const fragModule = this.device.createShaderModule({ code: fragmentShader, label: 'sf:frag' });
+
+      // Use getCompilationInfo() for line/column-accurate error messages
+      const [vertInfo, fragInfo] = await Promise.all([
+        vertModule.getCompilationInfo(),
+        fragModule.getCompilationInfo(),
+      ]);
+
+      const vertErrText = formatCompilationErrors(vertInfo.messages, 'vertex');
+      const fragErrText = formatCompilationErrors(fragInfo.messages, 'fragment');
+
+      if (vertErrText || fragErrText) {
+        const errText = [vertErrText, fragErrText].filter(Boolean).join('\n');
+        return { ok: false, error: errText || 'Shader compilation failed' };
+      }
 
       const pipeline = await this.device.createRenderPipelineAsync({
         label: 'sf:pipeline',
@@ -235,6 +258,7 @@ export class ShaderEffect {
         layout: this.bindGroupLayout,
         entries: [{ binding: 0, resource: { buffer: this.uniforms.gpuBuffer } }],
       });
+      this.vertexCount = vertexCount;
 
       return { ok: true };
     } catch (e) {
@@ -347,7 +371,7 @@ export class ShaderEffect {
         });
         pass.setPipeline(this.pipeline);
         pass.setBindGroup(0, this.bindGroup);
-        pass.draw(6); // fullscreen quad: 2 triangles, 6 vertices
+        pass.draw(this.vertexCount);
         pass.end();
       }
     }

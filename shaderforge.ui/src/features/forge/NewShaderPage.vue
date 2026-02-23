@@ -123,9 +123,25 @@
                   v-for="n in 4"
                   :key="n"
                   class="asset-slot"
-                  :title="`iChannel${n - 1}`"
+                  :title="`iChannel${n - 1}: click to upload image`"
+                  @click="openChannelPicker(n - 1)"
                 >
-                  <v-icon size="20">mdi-plus</v-icon>
+                  <input
+                    :ref="setChannelInputRef(n - 1)"
+                    type="file"
+                    accept="image/*"
+                    style="display:none"
+                    @change="(e) => onChannelFileChange(n - 1, e)"
+                  />
+                  <img
+                    v-if="channelImages[n - 1]"
+                    :src="channelImages[n - 1]!"
+                    :alt="`Uploaded texture for iChannel${n - 1}`"
+                    class="slot-thumbnail"
+                  />
+                  <template v-else>
+                    <v-icon size="20">mdi-plus</v-icon>
+                  </template>
                   <span class="slot-label">iCh{{ n - 1 }}</span>
                 </div>
               </div>
@@ -138,9 +154,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import MonacoEditor from '@/components/MonacoEditor.vue';
-import { ShaderEffect, DEFAULT_FRAGMENT_WGSL, DEFAULT_VERTEX_WGSL } from '@shaderforge/engine';
+import {
+  ShaderEffect,
+  DEFAULT_FRAGMENT_WGSL,
+  DEFAULT_VERTEX_WGSL,
+  DEFAULT_CUBE_VERTEX_WGSL,
+  DEFAULT_SPHERE_VERTEX_WGSL,
+} from '@shaderforge/engine';
 import { webgpuInitError } from '@/utils/webgpu';
 import { useAuth } from '@/composables/useAuth';
 import { createShader } from '@/services/apiService';
@@ -157,6 +179,37 @@ const fragmentShaderCode = ref(DEFAULT_FRAGMENT_WGSL);
 const previewCanvas = ref<HTMLCanvasElement | null>(null);
 const isPlaying = ref(true);
 const compileError = ref<string | null>(null);
+
+// iChannel texture upload state
+const channelImages = ref<(string | null)[]>([null, null, null, null]);
+const channelInputRefs = ref<(HTMLInputElement | null)[]>([null, null, null, null]);
+
+const setChannelInputRef = (idx: number) => (el: unknown) => {
+  channelInputRefs.value[idx] = el as HTMLInputElement | null;
+};
+
+// Sphere geometry constants — must match DEFAULT_SPHERE_VERTEX_WGSL
+const SPHERE_SLICES = 32;
+const SPHERE_STACKS = 16;
+
+// Number of vertices for each type
+const VERTEX_COUNTS: Record<string, number> = {
+  quad: 6,
+  cube: 36,
+  sphere: SPHERE_SLICES * SPHERE_STACKS * 6,
+};
+
+// Map vertex shader type to its WGSL code
+const VERTEX_SHADERS: Record<string, string> = {
+  quad: DEFAULT_VERTEX_WGSL,
+  cube: DEFAULT_CUBE_VERTEX_WGSL,
+  sphere: DEFAULT_SPHERE_VERTEX_WGSL,
+};
+
+// When the type toggle changes, update the vertex shader code (and advance mode)
+watch(vertexShaderType, (type) => {
+  vertexShaderCode.value = VERTEX_SHADERS[type] ?? DEFAULT_VERTEX_WGSL;
+});
 
 let effect: ShaderEffect | null = null;
 
@@ -208,7 +261,8 @@ const handleKeyDown = (event: KeyboardEvent) => {
 const recompileShader = async () => {
   if (effect) {
     try {
-      const result = await effect.compile(fragmentShaderCode.value, vertexShaderCode.value);
+      const vcount = VERTEX_COUNTS[vertexShaderType.value] ?? 6;
+      const result = await effect.compile(fragmentShaderCode.value, vertexShaderCode.value, vcount);
       compileError.value = result.ok ? null : (result.error ?? 'Unknown compile error');
     } catch (error) {
       compileError.value = String(error);
@@ -224,6 +278,25 @@ const togglePlayStop = () => {
     effect.play();
   }
   isPlaying.value = !isPlaying.value;
+};
+
+// iChannel file upload
+const openChannelPicker = (slotIndex: number) => {
+  channelInputRefs.value[slotIndex]?.click();
+};
+
+const onChannelFileChange = (slotIndex: number, event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  // Revoke previous blob URL if any
+  if (channelImages.value[slotIndex]) {
+    URL.revokeObjectURL(channelImages.value[slotIndex]!);
+  }
+  channelImages.value[slotIndex] = url;
+  // Reset input so the same file can be re-selected
+  input.value = '';
 };
 
 const { isAuthenticated } = useAuth();
@@ -475,6 +548,8 @@ const saveShader = async () => {
   cursor: pointer;
   transition: background 0.2s;
   gap: 4px;
+  position: relative;
+  overflow: hidden;
 }
 
 .asset-slot:hover {
@@ -486,6 +561,16 @@ const saveShader = async () => {
   font-size: 0.65rem;
   color: rgba(64, 192, 255, 0.6);
   font-family: monospace;
+}
+
+.slot-thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+  position: absolute;
+  inset: 0;
+  opacity: 0.85;
 }
 
 /* ---- Responsive --------------------------------------------------------- */
