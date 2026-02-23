@@ -44,6 +44,12 @@
           size="small"
           @click="saveShader"
         >{{ isAuthenticated ? 'Save' : 'Save Locally' }}</v-btn>
+        <v-snackbar v-model="saveSuccess" timeout="2500" color="success" location="bottom right">
+          Shader saved!
+        </v-snackbar>
+        <v-snackbar :model-value="!!saveError" @update:model-value="saveError = null" timeout="4000" color="error" location="bottom right">
+          {{ saveError }}
+        </v-snackbar>
       </div>
     </div>
 
@@ -136,6 +142,8 @@ import { ref, onMounted, onBeforeUnmount } from 'vue';
 import MonacoEditor from '@/components/MonacoEditor.vue';
 import { ShaderEffect, DEFAULT_FRAGMENT_WGSL, DEFAULT_VERTEX_WGSL } from '@shaderforge/engine';
 import { webgpuInitError } from '@/utils/webgpu';
+import { useAuth } from '@/composables/useAuth';
+import { createShader } from '@/services/apiService';
 
 // State
 const shaderTitle = ref('');
@@ -218,10 +226,35 @@ const togglePlayStop = () => {
   isPlaying.value = !isPlaying.value;
 };
 
-const isAuthenticated = false;
+const { isAuthenticated } = useAuth();
+const saveError = ref<string | null>(null);
+const saveSuccess = ref(false);
 
 const saveShader = async () => {
-  if (!isAuthenticated) {
+  saveError.value = null;
+  saveSuccess.value = false;
+  if (isAuthenticated.value) {
+    try {
+      await createShader({
+        name: shaderTitle.value || 'Untitled Shader',
+        fragmentShaderCode: fragmentShaderCode.value,
+        vertexShaderCode: vertexShaderCode.value,
+        description: shaderDescription.value,
+        isPublic: !isPrivate.value,
+      });
+      saveSuccess.value = true;
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { message?: string } | string } };
+      const apiMsg = axiosError.response?.data;
+      if (typeof apiMsg === 'string') {
+        saveError.value = apiMsg;
+      } else if (apiMsg && typeof apiMsg === 'object' && apiMsg.message) {
+        saveError.value = apiMsg.message;
+      } else {
+        saveError.value = error instanceof Error ? error.message : 'Failed to save shader.';
+      }
+    }
+  } else {
     const shader = {
       id: crypto.randomUUID(),
       title: shaderTitle.value,
@@ -233,6 +266,7 @@ const saveShader = async () => {
     const localShaders = JSON.parse(localStorage.getItem('localShaders') || '[]');
     localShaders.push(shader);
     localStorage.setItem('localShaders', JSON.stringify(localShaders));
+    saveSuccess.value = true;
   }
 };
 </script>

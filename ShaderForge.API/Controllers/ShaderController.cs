@@ -62,7 +62,7 @@ namespace ShaderForge.API.Controllers
         [HttpPost]
         public ActionResult<Shader> CreateShader([FromBody] Shader shader)
         {
-            if (shader.Id != null)
+            if (shader.Id != null || string.IsNullOrWhiteSpace(shader.Name))
             {
                 return BadRequest();
             }

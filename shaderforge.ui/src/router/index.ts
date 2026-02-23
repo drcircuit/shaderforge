@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import FrontPage from '@/features/frontpage/FrontPage.vue';
+import { useAuth } from '@/composables/useAuth';
 
 const routes = [
   {
@@ -41,9 +42,9 @@ const router = createRouter({
 
 // Navigation guard for protected routes
 router.beforeEach((to, from, next) => {
-  const isAuthenticated = false; // Replace with your auth check
-  
-  if (to.matched.some(record => record.meta.requiresAuth) && !isAuthenticated) {
+  const { isAuthenticated } = useAuth();
+
+  if (to.matched.some(record => record.meta.requiresAuth) && !isAuthenticated.value) {
     next('/login');
   } else {
     next();

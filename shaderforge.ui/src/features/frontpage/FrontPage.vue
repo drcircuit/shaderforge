@@ -95,17 +95,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { getNewestShaders, getFeaturedShader } from '@/services/apiService';
+import type { Shader } from '@/models/shaders';
 
 const router = useRouter();
 
-const featuredShader = ref({ thumbnailUrl: '/assets/shader1.jpg' });
+const featuredShader = ref<Shader | null>(null);
+const newestShaders = ref<Shader[]>([]);
 
-const newestShaders = ref([
-  { id: 1, thumbnailUrl: '/assets/shader2.jpg' },
-  { id: 2, thumbnailUrl: '/assets/shader3.jpg' },
-]);
+onMounted(async () => {
+  try {
+    const [featured, newest] = await Promise.all([
+      getFeaturedShader().catch(() => null),
+      getNewestShaders().catch(() => [] as Shader[]),
+    ]);
+    if (featured) featuredShader.value = featured;
+    if (newest.length) newestShaders.value = newest;
+  } catch {
+    // API not available — fall back to empty state
+  }
+});
 
 const articles = ref([
   { id: 1, title: 'Getting started with WGSL', url: 'https://example.com/article1', isExternal: true },

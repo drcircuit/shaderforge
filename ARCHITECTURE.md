@@ -178,13 +178,13 @@ Comments are a high-risk feature. The plan:
 |-----------|--------|-------|
 | M1 — `@shaderforge/engine` | ✅ Done | `shaderforge-engine/` — `ShaderEffect`, `LayerStack`, `UniformBuffer`, built-in uniforms |
 | M2 — Backend API (DTO/schema) | ✅ Done | Shader CRUD, User auth endpoints; `IUserService` + `ITokenService` implemented; in-memory stores |
-| M3 — Effect View | 🟡 Partial | Monaco editor + canvas preview wired to engine; save/load incomplete |
+| M3 — Effect View | ✅ Done | Monaco editor + canvas preview; save to API (authenticated) or localStorage (anonymous) |
 | M4 — Demo View (Tracker UI) | 🟡 Partial | Transport bar + row grid + inspector; audio upload not yet implemented |
-| M5 — Scene View (LayerStack) | 🟡 Engine done | `LayerStack` API complete; portal UI not yet wired |
-| M6 — Community Platform | ❌ Not started | Gallery stubs exist; no real data layer |
+| M5 — Scene View (LayerStack) | ✅ Done | `LayerStack` API complete; full Scene/PostFX/Transition layer editor in portal (`ScenePage.vue`) |
+| M6 — Community Platform | 🟡 Partial | FrontPage fetches real shader feed from API; gallery stubs exist; no real data layer |
 | Player Package Split | ❌ Not started | BeatClock/Tracker/Playlist to be extracted to `@shaderforge/player` |
 | Database (PostgreSQL + EF Core) | ❌ Not started | |
-| JWT Authentication | ✅ Done | `JwtTokenService` issues signed JWT tokens; Bearer auth middleware wired in `Program.cs`; write endpoints protected with `[Authorize]` |
+| JWT Authentication | ✅ Done | `JwtTokenService` issues signed JWT tokens; Bearer auth middleware wired in `Program.cs`; write endpoints protected with `[Authorize]`; `useAuth` composable persists token in localStorage |
 | Asset Management | ❌ Not started | Link-in model planned |
 | Comment Moderation | ❌ Not started | |
 

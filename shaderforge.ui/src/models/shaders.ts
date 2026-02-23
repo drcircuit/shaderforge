@@ -1,7 +1,7 @@
-// API Response Types
+// API Response Types — mirror the camelCase JSON output of ShaderForge.API
 export interface ShaderApiResponse {
   id: string;
-  title: string;
+  name: string;
   vertexShaderCode?: string | null;
   fragmentShaderCode?: string | null;
   computeShaderCode?: string | null;
@@ -9,10 +9,12 @@ export interface ShaderApiResponse {
   createdAt: string;
   updatedAt: string;
   createdBy: string;
-  thumbnailUrl: string;
+  thumbnail: string;
+  isPublic: boolean;
+  bpm?: number;
 }
 
-// Frontend-Specific Types
+// Frontend-Specific Types (uses UI-friendly aliases)
 export interface Shader {
   id: string;
   title: string;
@@ -24,4 +26,6 @@ export interface Shader {
   updatedAt: string;
   createdBy: string;
   thumbnailUrl: string;
+  isPublic?: boolean;
+  bpm?: number;
 }
