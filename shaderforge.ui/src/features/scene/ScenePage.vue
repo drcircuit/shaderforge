@@ -61,7 +61,16 @@
               </v-chip>
             </div>
             <div class="layer-actions">
-              <v-btn icon size="x-small" variant="text" @click.stop="removeLayer(idx)">
+              <v-btn icon size="x-small" variant="text" color="rgba(200,200,200,0.7)" title="Move up"
+                @click.stop="moveLayerUp(idx)" :disabled="idx === 0">
+                <v-icon size="14">mdi-chevron-up</v-icon>
+              </v-btn>
+              <v-btn icon size="x-small" variant="text" color="rgba(200,200,200,0.7)" title="Move down"
+                @click.stop="moveLayerDown(idx)" :disabled="idx === layers.length - 1">
+                <v-icon size="14">mdi-chevron-down</v-icon>
+              </v-btn>
+              <v-btn icon size="x-small" variant="text" color="rgba(255,100,100,0.85)" title="Remove layer"
+                @click.stop="removeLayer(idx)">
                 <v-icon size="14">mdi-close</v-icon>
               </v-btn>
             </div>
@@ -183,6 +192,7 @@
         </div>
         <div class="editor-body" v-if="selectedLayer">
           <MonacoEditor
+            :key="selectedLayer.id"
             v-model="selectedLayer.fragmentShader"
             language="wgsl"
             :options="editorOptions"
@@ -219,7 +229,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import MonacoEditor from '@/components/MonacoEditor.vue';
-import { ShaderEffect, LayerStack, DEFAULT_FRAGMENT_WGSL } from '@shaderforge/engine';
+import { ShaderEffect, LayerStack, DEFAULT_SCENE_FRAGMENT_WGSL } from '@shaderforge/engine';
 import { webgpuInitError } from '@/utils/webgpu';
 
 // ---- Types ----------------------------------------------------------------
@@ -256,7 +266,7 @@ const layers = ref<SceneLayer[]>([
     id: crypto.randomUUID(),
     name: 'base',
     type: 'scene',
-    fragmentShader: DEFAULT_FRAGMENT_WGSL,
+    fragmentShader: DEFAULT_SCENE_FRAGMENT_WGSL,
     channels: [null, null, null, null],
     outputMode: 'buffer',
     transitionSourceA: null,
@@ -314,7 +324,7 @@ function makeLayer(type: LayerType, suffix: string): SceneLayer {
     id: crypto.randomUUID(),
     name: `${suffix}${layerCounter}`,
     type,
-    fragmentShader: DEFAULT_FRAGMENT_WGSL,
+    fragmentShader: DEFAULT_SCENE_FRAGMENT_WGSL,
     channels: [null, null, null, null],
     outputMode: 'buffer',
     transitionSourceA: null,
@@ -343,6 +353,22 @@ function removeLayer(idx: number) {
   if (selectedLayerIdx.value >= layers.value.length) {
     selectedLayerIdx.value = layers.value.length - 1;
   }
+}
+
+function moveLayerUp(idx: number) {
+  if (idx <= 0) return;
+  const arr = layers.value;
+  [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+  if (selectedLayerIdx.value === idx) selectedLayerIdx.value = idx - 1;
+  else if (selectedLayerIdx.value === idx - 1) selectedLayerIdx.value = idx;
+}
+
+function moveLayerDown(idx: number) {
+  const arr = layers.value;
+  if (idx >= arr.length - 1) return;
+  [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+  if (selectedLayerIdx.value === idx) selectedLayerIdx.value = idx + 1;
+  else if (selectedLayerIdx.value === idx + 1) selectedLayerIdx.value = idx;
 }
 
 function selectLayer(idx: number) {
@@ -404,7 +430,7 @@ function stopAll() {
 onMounted(async () => {
   if (previewCanvas.value) {
     try {
-      const stack = new LayerStack().scene({ name: 'base', fragmentShader: DEFAULT_FRAGMENT_WGSL });
+      const stack = new LayerStack().scene({ name: 'base', fragmentShader: DEFAULT_SCENE_FRAGMENT_WGSL });
       effect = await ShaderEffect.create(previewCanvas.value, { layerStack: stack });
       effect.play();
       isPlaying.value = true;

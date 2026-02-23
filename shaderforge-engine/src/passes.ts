@@ -360,18 +360,42 @@ export class LayerStack {
     vertSrc: string,
     label: string,
   ): Promise<GPURenderPipeline> {
-    // Prepend the built-in uniform struct and channel binding declarations
-    const fullFrag = BUILTIN_UNIFORMS_WGSL + '\n' + CHANNEL_BINDINGS_WGSL + '\n' + fragSrc;
+    // Strip the BuiltinUniforms preamble if the caller already included it
+    // (e.g. when DEFAULT_FRAGMENT_WGSL is used directly).  The struct must
+    // not be declared twice or WGSL compilation will fail.
+    const preambleMarker = '@group(0) @binding(0) var<uniform> uniforms';
+    const cleanFrag = fragSrc.includes(preambleMarker)
+      ? CHANNEL_BINDINGS_WGSL + '\n' + fragSrc
+      : BUILTIN_UNIFORMS_WGSL + '\n' + CHANNEL_BINDINGS_WGSL + '\n' + fragSrc;
+
+    // Create shader modules then check compilation info for detailed errors
+    const vertModule = device.createShaderModule({ code: vertSrc,    label: `sf:vert:${label}` });
+    const fragModule = device.createShaderModule({ code: cleanFrag,  label: `sf:frag:${label}` });
+
+    const [vertInfo, fragInfo] = await Promise.all([
+      vertModule.getCompilationInfo(),
+      fragModule.getCompilationInfo(),
+    ]);
+
+    const vertErrors = vertInfo.messages.filter(m => m.type === 'error');
+    const fragErrors = fragInfo.messages.filter(m => m.type === 'error');
+
+    if (vertErrors.length || fragErrors.length) {
+      const fmt = (msgs: readonly GPUCompilationMessage[], stage: string) =>
+        msgs.map(m => `${stage} line ${m.lineNum}:${m.linePos} — ${m.message}`).join('\n');
+      const errText = [
+        vertErrors.length ? fmt(vertErrors, 'vertex') : '',
+        fragErrors.length ? fmt(fragErrors, 'fragment') : '',
+      ].filter(Boolean).join('\n');
+      throw new Error(errText || 'Shader compilation failed');
+    }
 
     return device.createRenderPipelineAsync({
       label: `sf:pass:${label}`,
       layout,
-      vertex: {
-        module: device.createShaderModule({ code: vertSrc, label: `sf:vert:${label}` }),
-        entryPoint: 'main',
-      },
+      vertex: { module: vertModule, entryPoint: 'main' },
       fragment: {
-        module: device.createShaderModule({ code: fullFrag, label: `sf:frag:${label}` }),
+        module: fragModule,
         entryPoint: 'main',
         targets: [{ format }],
       },
