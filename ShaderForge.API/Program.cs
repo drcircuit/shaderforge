@@ -87,7 +87,24 @@ internal class Program
                                   .AllowAnyMethod());
         });
 
-        if (builder.Environment.IsDevelopment())
+        var repoType = builder.Configuration["RepositoryConfig:Type"] ?? "InMemory";
+        var useDatabase = string.Equals(repoType, "Database", StringComparison.OrdinalIgnoreCase);
+
+        if (useDatabase)
+        {
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException(
+                    "ConnectionStrings:DefaultConnection is required when RepositoryConfig:Type is \"Database\". " +
+                    "For local development, use .NET User Secrets: " +
+                    "dotnet user-secrets set \"ConnectionStrings:DefaultConnection\" \"<neon-connection-string>\". " +
+                    "For production on Fly.io: flyctl secrets set ConnectionStrings__DefaultConnection=\"<neon-connection-string>\"");
+            builder.Services.AddDbContext<ShaderForgeDbContext>(options =>
+                options.UseNpgsql(connectionString));
+            builder.Services.AddScoped<IShaderRepository, EFShaderRepository>();
+            builder.Services.AddScoped<IUserStore, EFUserStore>();
+            builder.Services.AddScoped<IUserService, EFUserService>();
+        }
+        else
         {
             builder.Services.AddSingleton<IShaderDataService, MockShaderDataService>();
             builder.Services.AddScoped<IShaderRepository, InMemoryShaderRepository>();
@@ -95,25 +112,13 @@ internal class Program
             builder.Services.AddScoped<IShaderStore, InMemoryShaderStore>();
             builder.Services.AddSingleton<IUserService, InMemoryUserService>();
         }
-        else
-        {
-            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-                ?? throw new InvalidOperationException(
-                    "ConnectionStrings:DefaultConnection is required in production. " +
-                    "Set it as a Fly.io secret: flyctl secrets set ConnectionStrings__DefaultConnection=\"<neon-connection-string>\"");
-            builder.Services.AddDbContext<ShaderForgeDbContext>(options =>
-                options.UseNpgsql(connectionString));
-            builder.Services.AddScoped<IShaderRepository, EFShaderRepository>();
-            builder.Services.AddScoped<IUserStore, EFUserStore>();
-            builder.Services.AddScoped<IUserService, EFUserService>();
-        }
 
         builder.Services.AddSingleton(new SiteBackgroundService(Path.Combine(Directory.GetCurrentDirectory(), "sitebg")));
 
         var app = builder.Build();
 
-        // Apply EF Core migrations automatically on startup in production.
-        if (!app.Environment.IsDevelopment())
+        // Apply EF Core migrations automatically on startup when using the database.
+        if (useDatabase)
         {
             using var scope = app.Services.CreateScope();
             scope.ServiceProvider.GetRequiredService<ShaderForgeDbContext>().Database.Migrate();

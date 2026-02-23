@@ -350,12 +350,45 @@ shaderforge/
 # Engine package
 cd shaderforge-engine && npm install && npm run build
 
-# Backend
+# Backend (uses in-memory stores by default — no database needed)
 cd ShaderForge.API && dotnet run
 
 # Frontend
 cd shaderforge.ui && npm install && npm run serve
 ```
+
+### Using a real Neon database locally
+
+By default the API runs with in-memory stores (`RepositoryConfig.Type = "InMemory"`).
+To point your local API at a [Neon](https://neon.tech) PostgreSQL database instead:
+
+**Option 1 — .NET User Secrets (recommended, never committed)**
+
+```bash
+cd ShaderForge.API
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "<neon-connection-string>"
+dotnet user-secrets set "RepositoryConfig:Type" "Database"
+```
+
+**Option 2 — `appsettings.Development.json`**
+
+Edit `ShaderForge.API/appsettings.Development.json`:
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "postgresql://user:password@ep-xxx.eu-central-1.aws.neon.tech/neondb?sslmode=require"
+  },
+  "RepositoryConfig": {
+    "Type": "Database"
+  }
+}
+```
+
+> **Warning:** `appsettings.Development.json` is tracked by git.
+> Do **not** commit a real connection string — use User Secrets (Option 1) instead.
+
+For **production** deployments see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
