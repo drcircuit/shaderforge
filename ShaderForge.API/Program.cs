@@ -13,6 +13,9 @@ using Microsoft.Extensions.Hosting;
 using System.IO;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
+using ShaderForge.API.Data;
+using ShaderForge.API.Data.Services;
 
 internal class Program
 {
@@ -70,10 +73,6 @@ internal class Program
                 };
             });
 
-        builder.Services.AddScoped<IShaderRepository, InMemoryShaderRepository>();
-        builder.Services.AddSingleton<IUserStore, InMemoryUserStore>();
-        builder.Services.AddScoped<IShaderStore, InMemoryShaderStore>();
-        builder.Services.AddSingleton<IUserService, InMemoryUserService>();
         builder.Services.AddSingleton<ITokenService, JwtTokenService>();
 
         var allowedOrigins = builder.Configuration
@@ -91,15 +90,34 @@ internal class Program
         if (builder.Environment.IsDevelopment())
         {
             builder.Services.AddSingleton<IShaderDataService, MockShaderDataService>();
+            builder.Services.AddScoped<IShaderRepository, InMemoryShaderRepository>();
+            builder.Services.AddSingleton<IUserStore, InMemoryUserStore>();
+            builder.Services.AddScoped<IShaderStore, InMemoryShaderStore>();
+            builder.Services.AddSingleton<IUserService, InMemoryUserService>();
         }
         else
         {
-            // Add production implementation of IShaderDataService
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException(
+                    "ConnectionStrings:DefaultConnection is required in production. " +
+                    "Set it as a Fly.io secret: flyctl secrets set ConnectionStrings__DefaultConnection=<neon-connection-string>");
+            builder.Services.AddDbContext<ShaderForgeDbContext>(options =>
+                options.UseNpgsql(connectionString));
+            builder.Services.AddScoped<IShaderRepository, EFShaderRepository>();
+            builder.Services.AddScoped<IUserStore, EFUserStore>();
+            builder.Services.AddScoped<IUserService, EFUserService>();
         }
 
         builder.Services.AddSingleton(new SiteBackgroundService(Path.Combine(Directory.GetCurrentDirectory(), "sitebg")));
 
         var app = builder.Build();
+
+        // Apply EF Core migrations automatically on startup in production.
+        if (!app.Environment.IsDevelopment())
+        {
+            using var scope = app.Services.CreateScope();
+            scope.ServiceProvider.GetRequiredService<ShaderForgeDbContext>().Database.Migrate();
+        }
 
         // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
