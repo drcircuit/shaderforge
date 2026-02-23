@@ -127,7 +127,7 @@
                   @click="openChannelPicker(n - 1)"
                 >
                   <input
-                    :ref="(el) => { channelInputRefs[n - 1] = el as HTMLInputElement | null; }"
+                    :ref="setChannelInputRef(n - 1)"
                     type="file"
                     accept="image/*"
                     style="display:none"
@@ -136,8 +136,8 @@
                   <img
                     v-if="channelImages[n - 1]"
                     :src="channelImages[n - 1]!"
+                    :alt="`Uploaded texture for iChannel${n - 1}`"
                     class="slot-thumbnail"
-                    alt=""
                   />
                   <template v-else>
                     <v-icon size="20">mdi-plus</v-icon>
@@ -184,11 +184,19 @@ const compileError = ref<string | null>(null);
 const channelImages = ref<(string | null)[]>([null, null, null, null]);
 const channelInputRefs = ref<(HTMLInputElement | null)[]>([null, null, null, null]);
 
+const setChannelInputRef = (idx: number) => (el: unknown) => {
+  channelInputRefs.value[idx] = el as HTMLInputElement | null;
+};
+
+// Sphere geometry constants — must match DEFAULT_SPHERE_VERTEX_WGSL
+const SPHERE_SLICES = 32;
+const SPHERE_STACKS = 16;
+
 // Number of vertices for each type
 const VERTEX_COUNTS: Record<string, number> = {
   quad: 6,
   cube: 36,
-  sphere: 32 * 16 * 6, // SLICES * STACKS * 6
+  sphere: SPHERE_SLICES * SPHERE_STACKS * 6,
 };
 
 // Map vertex shader type to its WGSL code

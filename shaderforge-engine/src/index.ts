@@ -43,7 +43,7 @@ export { UniformBuffer, BUILTIN_BUFFER_SIZE } from './uniforms.js';
 import { DEFAULT_VERTEX_WGSL, DEFAULT_FRAGMENT_WGSL } from './defaults.js';
 import { UniformBuffer } from './uniforms.js';
 import { Tracker } from './tracker.js';
-import { LayerStack } from './passes.js';
+import { LayerStack, formatCompilationErrors } from './passes.js';
 import type { BeatClockState } from './tracker.js';
 
 // ---------------------------------------------------------------------------
@@ -232,16 +232,11 @@ export class ShaderEffect {
         fragModule.getCompilationInfo(),
       ]);
 
-      const vertErrors = vertInfo.messages.filter(m => m.type === 'error');
-      const fragErrors = fragInfo.messages.filter(m => m.type === 'error');
+      const vertErrText = formatCompilationErrors(vertInfo.messages, 'vertex');
+      const fragErrText = formatCompilationErrors(fragInfo.messages, 'fragment');
 
-      if (vertErrors.length || fragErrors.length) {
-        const fmt = (msgs: readonly GPUCompilationMessage[], stage: string) =>
-          msgs.map(m => `${stage} line ${m.lineNum}:${m.linePos} — ${m.message}`).join('\n');
-        const errText = [
-          vertErrors.length ? fmt(vertErrors, 'vertex') : '',
-          fragErrors.length ? fmt(fragErrors, 'fragment') : '',
-        ].filter(Boolean).join('\n');
+      if (vertErrText || fragErrText) {
+        const errText = [vertErrText, fragErrText].filter(Boolean).join('\n');
         return { ok: false, error: errText || 'Shader compilation failed' };
       }
 

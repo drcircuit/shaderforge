@@ -36,6 +36,26 @@ import { BUILTIN_UNIFORMS_WGSL, CHANNEL_BINDINGS_WGSL, DEFAULT_VERTEX_WGSL } fro
 import type { UniformBuffer } from './uniforms.js';
 
 // ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Format WebGPU shader compilation messages as a human-readable string with
+ * stage label, line number and column position.
+ *
+ * @internal  Also used by ShaderEffect.compile() in index.ts.
+ */
+export function formatCompilationErrors(
+  messages: readonly GPUCompilationMessage[],
+  stage: string,
+): string {
+  return messages
+    .filter(m => m.type === 'error')
+    .map(m => `${stage} line ${m.lineNum}:${m.linePos} — ${m.message}`)
+    .join('\n');
+}
+
+// ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
 
@@ -363,7 +383,8 @@ export class LayerStack {
     // Strip the BuiltinUniforms preamble if the caller already included it
     // (e.g. when DEFAULT_FRAGMENT_WGSL is used directly).  The struct must
     // not be declared twice or WGSL compilation will fail.
-    const preambleMarker = '@group(0) @binding(0) var<uniform> uniforms';
+    // We detect this by looking for the struct declaration itself.
+    const preambleMarker = 'struct BuiltinUniforms';
     const cleanFrag = fragSrc.includes(preambleMarker)
       ? CHANNEL_BINDINGS_WGSL + '\n' + fragSrc
       : BUILTIN_UNIFORMS_WGSL + '\n' + CHANNEL_BINDINGS_WGSL + '\n' + fragSrc;
@@ -377,16 +398,11 @@ export class LayerStack {
       fragModule.getCompilationInfo(),
     ]);
 
-    const vertErrors = vertInfo.messages.filter(m => m.type === 'error');
-    const fragErrors = fragInfo.messages.filter(m => m.type === 'error');
+    const vertErrText = formatCompilationErrors(vertInfo.messages, 'vertex');
+    const fragErrText = formatCompilationErrors(fragInfo.messages, 'fragment');
 
-    if (vertErrors.length || fragErrors.length) {
-      const fmt = (msgs: readonly GPUCompilationMessage[], stage: string) =>
-        msgs.map(m => `${stage} line ${m.lineNum}:${m.linePos} — ${m.message}`).join('\n');
-      const errText = [
-        vertErrors.length ? fmt(vertErrors, 'vertex') : '',
-        fragErrors.length ? fmt(fragErrors, 'fragment') : '',
-      ].filter(Boolean).join('\n');
+    if (vertErrText || fragErrText) {
+      const errText = [vertErrText, fragErrText].filter(Boolean).join('\n');
       throw new Error(errText || 'Shader compilation failed');
     }
 

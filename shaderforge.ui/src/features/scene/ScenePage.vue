@@ -61,15 +61,18 @@
               </v-chip>
             </div>
             <div class="layer-actions">
-              <v-btn icon size="x-small" variant="text" color="rgba(200,200,200,0.7)" title="Move up"
+              <v-btn icon size="x-small" variant="text" color="rgba(200,200,200,0.7)"
+                title="Move up" aria-label="Move layer up"
                 @click.stop="moveLayerUp(idx)" :disabled="idx === 0">
                 <v-icon size="14">mdi-chevron-up</v-icon>
               </v-btn>
-              <v-btn icon size="x-small" variant="text" color="rgba(200,200,200,0.7)" title="Move down"
+              <v-btn icon size="x-small" variant="text" color="rgba(200,200,200,0.7)"
+                title="Move down" aria-label="Move layer down"
                 @click.stop="moveLayerDown(idx)" :disabled="idx === layers.length - 1">
                 <v-icon size="14">mdi-chevron-down</v-icon>
               </v-btn>
-              <v-btn icon size="x-small" variant="text" color="rgba(255,100,100,0.85)" title="Remove layer"
+              <v-btn icon size="x-small" variant="text" color="rgba(255,100,100,0.85)"
+                title="Remove layer" aria-label="Remove layer"
                 @click.stop="removeLayer(idx)">
                 <v-icon size="14">mdi-close</v-icon>
               </v-btn>
