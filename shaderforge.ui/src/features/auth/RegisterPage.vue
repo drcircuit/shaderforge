@@ -12,13 +12,11 @@
 
         <v-text-field
           v-model="form.email"
-          label="Email"
+          label="Email (optional)"
           type="email"
-          :rules="[
-            v => !!v || 'Email is required',
-            v => /.+@.+\..+/.test(v) || 'Email must be valid'
-          ]"
-          required
+          :rules="[v => !v || /.+@.+\..+/.test(v) || 'Email must be valid']"
+          hint="Used only for password recovery — never shared"
+          persistent-hint
         ></v-text-field>
 
         <v-text-field

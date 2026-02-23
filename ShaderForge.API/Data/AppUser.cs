@@ -1,0 +1,13 @@
+namespace ShaderForge.API.Data
+{
+    public class AppUser
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Username { get; set; } = string.Empty;
+        public string? Email { get; set; }
+        public string PasswordHash { get; set; } = string.Empty;
+        public string? Bio { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    }
+}

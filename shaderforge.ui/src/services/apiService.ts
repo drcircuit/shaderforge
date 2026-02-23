@@ -18,6 +18,10 @@ const mapToShader = (apiShader: ShaderApiResponse): Shader => ({
   thumbnailUrl: apiShader.thumbnail,
   isPublic: apiShader.isPublic,
   bpm: apiShader.bpm,
+  channel0Url: apiShader.channel0Url,
+  channel1Url: apiShader.channel1Url,
+  channel2Url: apiShader.channel2Url,
+  channel3Url: apiShader.channel3Url,
 });
 
 /**
@@ -111,6 +115,10 @@ export interface CreateShaderPayload {
   description?: string;
   bpm?: number;
   isPublic?: boolean;
+  channel0Url?: string;
+  channel1Url?: string;
+  channel2Url?: string;
+  channel3Url?: string;
 }
 
 /**

@@ -12,6 +12,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.IO;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
+using ShaderForge.API.Data;
+using ShaderForge.API.Data.Services;
 
 internal class Program
 {
@@ -69,16 +73,16 @@ internal class Program
                 };
             });
 
-        builder.Services.AddScoped<IShaderRepository, InMemoryShaderRepository>();
-        builder.Services.AddSingleton<IUserStore, InMemoryUserStore>();
-        builder.Services.AddScoped<IShaderStore, InMemoryShaderStore>();
-        builder.Services.AddSingleton<IUserService, InMemoryUserService>();
         builder.Services.AddSingleton<ITokenService, JwtTokenService>();
+
+        var allowedOrigins = builder.Configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>() ?? new[] { "http://localhost:8080" };
 
         builder.Services.AddCors(options =>
         {
-            options.AddPolicy("AllowLocalhost8080",
-                builder => builder.WithOrigins("http://localhost:8080")
+            options.AddPolicy("AllowConfiguredOrigins",
+                policy => policy.WithOrigins(allowedOrigins)
                                   .AllowAnyHeader()
                                   .AllowAnyMethod());
         });
@@ -86,15 +90,34 @@ internal class Program
         if (builder.Environment.IsDevelopment())
         {
             builder.Services.AddSingleton<IShaderDataService, MockShaderDataService>();
+            builder.Services.AddScoped<IShaderRepository, InMemoryShaderRepository>();
+            builder.Services.AddSingleton<IUserStore, InMemoryUserStore>();
+            builder.Services.AddScoped<IShaderStore, InMemoryShaderStore>();
+            builder.Services.AddSingleton<IUserService, InMemoryUserService>();
         }
         else
         {
-            // Add production implementation of IShaderDataService
+            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException(
+                    "ConnectionStrings:DefaultConnection is required in production. " +
+                    "Set it as a Fly.io secret: flyctl secrets set ConnectionStrings__DefaultConnection=\"<neon-connection-string>\"");
+            builder.Services.AddDbContext<ShaderForgeDbContext>(options =>
+                options.UseNpgsql(connectionString));
+            builder.Services.AddScoped<IShaderRepository, EFShaderRepository>();
+            builder.Services.AddScoped<IUserStore, EFUserStore>();
+            builder.Services.AddScoped<IUserService, EFUserService>();
         }
 
         builder.Services.AddSingleton(new SiteBackgroundService(Path.Combine(Directory.GetCurrentDirectory(), "sitebg")));
 
         var app = builder.Build();
+
+        // Apply EF Core migrations automatically on startup in production.
+        if (!app.Environment.IsDevelopment())
+        {
+            using var scope = app.Services.CreateScope();
+            scope.ServiceProvider.GetRequiredService<ShaderForgeDbContext>().Database.Migrate();
+        }
 
         // Configure the HTTP request pipeline.
         if (app.Environment.IsDevelopment())
@@ -107,10 +130,14 @@ internal class Program
             });
         }
 
+        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+        });
         app.UseHttpsRedirection();
         app.UseAuthentication();
         app.UseAuthorization();
-        app.UseCors("AllowLocalhost8080");
+        app.UseCors("AllowConfiguredOrigins");
         app.UseStaticFiles(new StaticFileOptions
         {
             FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), "sitebg")),
@@ -121,6 +148,7 @@ internal class Program
             FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), "thumbnails")),
             RequestPath = "/api/thumbnails"
         });
+        app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
         app.MapControllers();
         app.Run();
     }

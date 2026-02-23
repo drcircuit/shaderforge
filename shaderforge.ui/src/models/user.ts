@@ -1,7 +1,7 @@
 export interface UserRegistration {
   username: string;
   password: string;
-  email: string;
+  email?: string;
 }
 
 export interface UserLogin {
@@ -11,7 +11,7 @@ export interface UserLogin {
 
 export interface UserProfile {
   username: string;
-  email: string;
+  email?: string;
   bio?: string;
 }
 

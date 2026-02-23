@@ -28,7 +28,7 @@ namespace ShaderForge.API.Data.Services
                 return new UserServiceResult { Success = false, Errors = new[] { "Username already taken." } };
             }
 
-            var author = new ShaderAuthor { Username = dto.Username, Email = dto.Email };
+            var author = new ShaderAuthor { Username = dto.Username, Email = dto.Email ?? string.Empty };
             await _userStore.CreateUserAsync(author, dto.Password);
 
             var user = new User
@@ -84,7 +84,7 @@ namespace ShaderForge.API.Data.Services
                 return new UserServiceResult { Success = false, Errors = new[] { "User not found." } };
             }
 
-            author.Email = dto.Email;
+            author.Email = dto.Email ?? author.Email;
 
             _userProfiles.TryGetValue(dto.Username, out var existing);
             var user = new User

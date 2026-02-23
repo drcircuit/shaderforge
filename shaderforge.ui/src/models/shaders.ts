@@ -9,9 +9,13 @@ export interface ShaderApiResponse {
   createdAt: string;
   updatedAt: string;
   createdBy: string;
-  thumbnail: string;
+  thumbnail?: string | null;
   isPublic: boolean;
   bpm?: number;
+  channel0Url?: string | null;
+  channel1Url?: string | null;
+  channel2Url?: string | null;
+  channel3Url?: string | null;
 }
 
 // Frontend-Specific Types (uses UI-friendly aliases)
@@ -25,7 +29,11 @@ export interface Shader {
   createdAt: string;
   updatedAt: string;
   createdBy: string;
-  thumbnailUrl: string;
+  thumbnailUrl?: string | null;
   isPublic?: boolean;
   bpm?: number;
+  channel0Url?: string | null;
+  channel1Url?: string | null;
+  channel2Url?: string | null;
+  channel3Url?: string | null;
 }
