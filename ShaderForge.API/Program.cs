@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System.IO;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.HttpOverrides;
 
 internal class Program
 {
@@ -75,10 +76,14 @@ internal class Program
         builder.Services.AddSingleton<IUserService, InMemoryUserService>();
         builder.Services.AddSingleton<ITokenService, JwtTokenService>();
 
+        var allowedOrigins = builder.Configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>() ?? new[] { "http://localhost:8080" };
+
         builder.Services.AddCors(options =>
         {
-            options.AddPolicy("AllowLocalhost8080",
-                builder => builder.WithOrigins("http://localhost:8080")
+            options.AddPolicy("AllowConfiguredOrigins",
+                policy => policy.WithOrigins(allowedOrigins)
                                   .AllowAnyHeader()
                                   .AllowAnyMethod());
         });
@@ -107,10 +112,14 @@ internal class Program
             });
         }
 
+        app.UseForwardedHeaders(new ForwardedHeadersOptions
+        {
+            ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+        });
         app.UseHttpsRedirection();
         app.UseAuthentication();
         app.UseAuthorization();
-        app.UseCors("AllowLocalhost8080");
+        app.UseCors("AllowConfiguredOrigins");
         app.UseStaticFiles(new StaticFileOptions
         {
             FileProvider = new PhysicalFileProvider(Path.Combine(Directory.GetCurrentDirectory(), "sitebg")),

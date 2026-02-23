@@ -1,0 +1,47 @@
+name: Deploy UI to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'shaderforge.ui/**'
+      - 'shaderforge-engine/**'
+      - '.github/workflows/deploy-ui.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install engine dependencies
+        working-directory: shaderforge-engine
+        run: npm install
+
+      - name: Build engine
+        working-directory: shaderforge-engine
+        run: npm run build
+
+      - name: Install UI dependencies
+        working-directory: shaderforge.ui
+        run: npm install
+
+      - name: Build UI
+        working-directory: shaderforge.ui
+        run: npm run build
+        env:
+          VUE_APP_API_BASE_URL: https://api.shaderforge.net/api
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: shaderforge
+          directory: shaderforge.ui/dist
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
