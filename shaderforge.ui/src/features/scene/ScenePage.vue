@@ -193,6 +193,62 @@
           </v-icon>
           <span>{{ selectedLayer ? selectedLayer.name : 'Select a layer' }} — Fragment Shader</span>
         </div>
+
+        <!-- Parameters accordion (uniforms + channels) -->
+        <v-expansion-panels v-if="selectedLayer" variant="accordion" class="params-panels">
+          <v-expansion-panel>
+            <v-expansion-panel-title class="params-panel-title">
+              <v-icon size="13" class="mr-1">mdi-variable</v-icon>
+              Built-in Uniforms
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <div class="uniform-grid">
+                <div v-for="u in BUILTIN_UNIFORMS" :key="u.name" class="uniform-row">
+                  <span class="uniform-type">{{ u.type }}</span>
+                  <span class="uniform-name">uniforms.{{ u.name }}</span>
+                  <span class="uniform-desc">{{ u.desc }}</span>
+                </div>
+              </div>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+          <v-expansion-panel>
+            <v-expansion-panel-title class="params-panel-title">
+              <v-icon size="13" class="mr-1">mdi-texture</v-icon>
+              Channels &amp; Samplers
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <div class="channel-info-grid">
+                <template v-if="selectedLayer.type === 'scene'">
+                  <div v-for="ch in 4" :key="ch" class="channel-info-row">
+                    <span class="channel-binding">iChannel{{ ch - 1 }}</span>
+                    <span class="channel-sampler">iChannel{{ ch - 1 }}Sampler</span>
+                    <span class="channel-source">{{ selectedLayer.channels[ch - 1] || '(none)' }}</span>
+                  </div>
+                </template>
+                <template v-else-if="selectedLayer.type === 'transition'">
+                  <div class="channel-info-row">
+                    <span class="channel-binding">iChannel0</span>
+                    <span class="channel-sampler">iChannel0Sampler</span>
+                    <span class="channel-source">{{ selectedLayer.transitionSourceA || '(none)' }}</span>
+                  </div>
+                  <div class="channel-info-row">
+                    <span class="channel-binding">iChannel1</span>
+                    <span class="channel-sampler">iChannel1Sampler</span>
+                    <span class="channel-source">{{ selectedLayer.transitionSourceB || '(none)' }}</span>
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="channel-info-row">
+                    <span class="channel-binding">iChannel0</span>
+                    <span class="channel-sampler">iChannel0Sampler</span>
+                    <span class="channel-source">{{ selectedLayer.channels[0] || '(previous layer)' }}</span>
+                  </div>
+                </template>
+              </div>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
+
         <div class="editor-body" v-if="selectedLayer">
           <MonacoEditor
             :key="selectedLayer.id"
@@ -319,6 +375,20 @@ const editorOptions = {
   wordWrap: 'on' as 'on',
   padding: { top: 12, bottom: 12 },
 };
+
+// ---- Built-in uniforms reference -----------------------------------------
+const BUILTIN_UNIFORMS = [
+  { type: 'f32',   name: 'time',           desc: 'seconds since effect start' },
+  { type: 'u32',   name: 'frame',          desc: 'frame counter' },
+  { type: 'vec2f', name: 'resolution',     desc: 'viewport size in pixels' },
+  { type: 'vec2f', name: 'mouse',          desc: 'pointer position in pixels' },
+  { type: 'f32',   name: 'bpm',            desc: 'beats per minute' },
+  { type: 'f32',   name: 'beat',           desc: 'absolute beat (fractional)' },
+  { type: 'f32',   name: 'barProgress',    desc: '0→1 within current bar' },
+  { type: 'f32',   name: 'quarterPhase',   desc: '0→1 within a quarter note' },
+  { type: 'f32',   name: 'eighthPhase',    desc: '0→1 within an eighth note' },
+  { type: 'f32',   name: 'sixteenthPhase', desc: '0→1 within a sixteenth note' },
+] as const;
 
 // ---- Layer management -----------------------------------------------------
 function makeLayer(type: LayerType, suffix: string): SceneLayer {
@@ -643,6 +713,96 @@ onBeforeUnmount(() => {
   flex-direction: column;
   overflow: hidden;
   position: relative;
+}
+
+/* ---- Parameters accordion ----------------------------------------------- */
+.params-panels {
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(64, 192, 255, 0.12);
+}
+
+:deep(.params-panels .v-expansion-panel) {
+  background: transparent !important;
+}
+
+:deep(.params-panels .v-expansion-panel-title) {
+  min-height: 28px !important;
+  padding: 0 0.75rem !important;
+  font-size: 0.7rem;
+  color: rgba(64, 192, 255, 0.75);
+  font-family: 'Audiowide', sans-serif;
+}
+
+:deep(.params-panels .v-expansion-panel-title .v-expansion-panel-title__overlay) {
+  background: transparent;
+}
+
+:deep(.params-panels .v-expansion-panel-text__wrapper) {
+  padding: 0.4rem 0.75rem 0.5rem !important;
+}
+
+.params-panel-title {
+  display: flex;
+  align-items: center;
+}
+
+.uniform-grid {
+  display: grid;
+  grid-template-columns: 52px 1fr 1fr;
+  gap: 2px 0.5rem;
+}
+
+.uniform-row {
+  display: contents;
+}
+
+.uniform-type {
+  font-family: monospace;
+  font-size: 0.68rem;
+  color: #56d3c2;
+}
+
+.uniform-name {
+  font-family: monospace;
+  font-size: 0.68rem;
+  color: #6ec2ff;
+}
+
+.uniform-desc {
+  font-size: 0.66rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.channel-info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.channel-info-row {
+  display: grid;
+  grid-template-columns: 80px 110px 1fr;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.68rem;
+}
+
+.channel-binding {
+  font-family: monospace;
+  color: #6ec2ff;
+}
+
+.channel-sampler {
+  font-family: monospace;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.channel-source {
+  font-family: monospace;
+  color: #96d166;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .editor-body {
