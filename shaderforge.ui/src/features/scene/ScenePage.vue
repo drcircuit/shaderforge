@@ -263,6 +263,67 @@
         </div>
       </div>
     </div>
+
+    <!-- ---- Forge Picker Dialog ------------------------------------------ -->
+    <v-dialog v-model="showForgePicker" max-width="480" scrollable>
+      <v-card class="forge-picker-card">
+        <v-card-title class="forge-picker-title">
+          <v-icon
+            size="18"
+            :color="forgePickerMode === 'pixelshader' ? 'primary' : 'secondary'"
+            class="mr-2"
+          >{{ forgePickerMode === 'pixelshader' ? 'mdi-image' : 'mdi-image-filter-drama' }}</v-icon>
+          Add {{ forgePickerMode === 'pixelshader' ? 'Shader' : 'Post-FX' }} to Scene
+        </v-card-title>
+
+        <v-card-text class="forge-picker-body">
+          <v-text-field
+            v-model="forgePickerSearch"
+            placeholder="Search shaders…"
+            prepend-inner-icon="mdi-magnify"
+            density="compact"
+            hide-details
+            variant="outlined"
+            class="mb-3"
+          />
+
+          <div v-if="forgePickerLoading" class="picker-loading">
+            <v-progress-circular indeterminate size="28" color="primary" />
+          </div>
+
+          <div v-else-if="filteredForgeShaders.length === 0" class="picker-empty">
+            <v-icon size="32" color="rgba(64,192,255,0.3)">mdi-folder-open-outline</v-icon>
+            <p v-if="!username">Log in to pick from your saved forges.</p>
+            <p v-else>No saved shaders found. Create a blank one below.</p>
+          </div>
+
+          <v-list v-else density="compact" class="forge-list">
+            <v-list-item
+              v-for="shader in filteredForgeShaders"
+              :key="shader.id"
+              :title="shader.title"
+              :subtitle="shader.createdAt ? new Date(shader.createdAt).toLocaleDateString() : ''"
+              prepend-icon="mdi-code-braces"
+              class="forge-list-item"
+              @click="addFromForge(shader)"
+            />
+          </v-list>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="forge-picker-actions">
+          <v-btn variant="text" @click="showForgePicker = false">Cancel</v-btn>
+          <v-spacer />
+          <v-btn
+            variant="outlined"
+            color="primary"
+            prepend-icon="mdi-plus"
+            @click="addNewBlankFromPicker"
+          >New Blank</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -271,6 +332,9 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import MonacoEditor from '@/components/MonacoEditor.vue';
 import { ShaderEffect, LayerStack, DEFAULT_SCENE_FRAGMENT_WGSL } from '@shaderforge/engine';
 import { webgpuInitError } from '@/utils/webgpu';
+import { getShadersByCreatedBy } from '@/services/apiService';
+import { useAuth } from '@/composables/useAuth';
+import type { Shader } from '@/models/shaders';
 
 // ---- Types ----------------------------------------------------------------
 type ShaderType = 'pixelshader' | 'postfx';
@@ -301,6 +365,16 @@ const selectedSceneIdx = ref<number>(-1);
 const selectedShaderIdx = ref<number>(-1);
 let effect: ShaderEffect | null = null;
 let itemCounter = 0;
+
+// ---- Auth -----------------------------------------------------------------
+const { username } = useAuth();
+
+// ---- Forge picker dialog --------------------------------------------------
+const showForgePicker = ref(false);
+const forgePickerMode = ref<ShaderType>('pixelshader');
+const forgeShaders = ref<Shader[]>([]);
+const forgePickerSearch = ref('');
+const forgePickerLoading = ref(false);
 
 const scenes = ref<SceneContainer[]>([
   {
@@ -335,6 +409,14 @@ const namedBufferShaders = computed<string[]>(() =>
     .filter(s => s.type === 'pixelshader')
     .map(s => s.name) ?? []
 );
+
+/** Forge shaders filtered by the search string */
+const filteredForgeShaders = computed<Shader[]>(() => {
+  const q = forgePickerSearch.value.trim().toLowerCase();
+  return q
+    ? forgeShaders.value.filter(s => s.title.toLowerCase().includes(q))
+    : forgeShaders.value;
+});
 
 // ---- Shader type helpers --------------------------------------------------
 function shaderIcon(type: ShaderType): string {
@@ -412,18 +494,56 @@ function makeShader(type: ShaderType, suffix: string): SceneShader {
   };
 }
 
+async function openForgePicker(type: ShaderType) {
+  if (!selectedScene.value) return;
+  forgePickerMode.value = type;
+  forgePickerSearch.value = '';
+  forgeShaders.value = [];
+  forgePickerLoading.value = true;
+  showForgePicker.value = true;
+  if (username.value) {
+    try {
+      forgeShaders.value = await getShadersByCreatedBy(username.value);
+    } catch {
+      // Silently ignore — user can still create a new blank shader
+    }
+  }
+  forgePickerLoading.value = false;
+}
+
 function addShader() {
-  const sc = selectedScene.value;
-  if (!sc) return;
-  sc.shaders.push(makeShader('pixelshader', 'shader'));
-  selectedShaderIdx.value = sc.shaders.length - 1;
+  openForgePicker('pixelshader');
 }
 
 function addPostFx() {
+  openForgePicker('postfx');
+}
+
+/** Add a shader from the user's forge to the selected scene. */
+function addFromForge(shader: Shader) {
   const sc = selectedScene.value;
   if (!sc) return;
-  sc.shaders.push(makeShader('postfx', 'postfx'));
+  itemCounter += 1;
+  sc.shaders.push({
+    id: crypto.randomUUID(),
+    name: shader.title,
+    type: forgePickerMode.value,
+    fragmentShader: shader.fragmentShaderCode ?? DEFAULT_SCENE_FRAGMENT_WGSL,
+    channels: [null, null, null, null],
+    outputMode: 'buffer',
+  });
   selectedShaderIdx.value = sc.shaders.length - 1;
+  showForgePicker.value = false;
+}
+
+/** Add a blank new shader to the selected scene (no forge required). */
+function addNewBlankFromPicker() {
+  const sc = selectedScene.value;
+  if (!sc) return;
+  const suffix = forgePickerMode.value === 'postfx' ? 'postfx' : 'shader';
+  sc.shaders.push(makeShader(forgePickerMode.value, suffix));
+  selectedShaderIdx.value = sc.shaders.length - 1;
+  showForgePicker.value = false;
 }
 
 function removeShader(idx: number) {
@@ -934,5 +1054,73 @@ onBeforeUnmount(() => {
   .scene-panels {
     grid-template-rows: auto 300px 300px;
   }
+}
+
+/* ---- Forge Picker Dialog ------------------------------------------------- */
+.forge-picker-card {
+  background: rgba(16, 18, 28, 0.98) !important;
+  border: 1px solid rgba(64, 192, 255, 0.2);
+}
+
+.forge-picker-title {
+  font-family: 'Audiowide', sans-serif;
+  font-size: 0.85rem;
+  color: #40c0ff;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.forge-picker-body {
+  padding: 0.75rem 1rem !important;
+  min-height: 160px;
+}
+
+.picker-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem 0;
+}
+
+.picker-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem 0;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.forge-list {
+  background: transparent !important;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.forge-list-item {
+  border-radius: 6px;
+  margin-bottom: 2px;
+  cursor: pointer;
+}
+
+:deep(.forge-list-item:hover) {
+  background: rgba(64, 192, 255, 0.1) !important;
+}
+
+:deep(.forge-list-item .v-list-item-title) {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+:deep(.forge-list-item .v-list-item-subtitle) {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.forge-picker-actions {
+  padding: 0.5rem 1rem;
 }
 </style>

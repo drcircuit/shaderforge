@@ -137,11 +137,11 @@ export const createShader = async (payload: CreateShaderPayload): Promise<Shader
 };
 
 /**
- * Fetches a shader by its ID.
+ * Fetches shaders created by a given user.
  */
-export const getShaderById = async (id: string): Promise<Shader> => {
-  const response = await axios.get<ShaderApiResponse>(`${API_BASE_URL}/shaders/${id}`);
-  return mapToShader(response.data);
+export const getShadersByCreatedBy = async (createdBy: string): Promise<Shader[]> => {
+  const response = await axios.get<ShaderApiResponse[]>(`${API_BASE_URL}/shaders/createdBy/${createdBy}`);
+  return response.data.map(mapToShader);
 };
 
 // ---------------------------------------------------------------------------
@@ -159,8 +159,12 @@ const mapToScene = (api: SceneApiResponse): Scene => ({
 });
 
 /**
- * Fetches all scenes.
+ * Fetches a shader by its ID.
  */
+export const getShaderById = async (id: string): Promise<Shader> => {
+  const response = await axios.get<ShaderApiResponse>(`${API_BASE_URL}/shaders/${id}`);
+  return mapToShader(response.data);
+};
 export const getAllScenes = async (): Promise<Scene[]> => {
   const response = await axios.get<SceneApiResponse[]>(`${API_BASE_URL}/scenes`);
   return response.data.map(mapToScene);
