@@ -87,16 +87,18 @@ onMounted(() => {
   }
 });
 
-// Watch for modelValue changes
+// Watch for modelValue changes — flush:'post' ensures this runs after the DOM
+// update so it never fires on a stale (pre-unmount) editor instance.
 watch(() => props.modelValue, (newValue) => {
   if (editor && editor.getValue() !== newValue) {
     editor.setValue(newValue);
   }
-});
+}, { flush: 'post' });
 
 // Cleanup
 onBeforeUnmount(() => {
   editor?.dispose();
+  editor = null;
 });
 </script>
 
