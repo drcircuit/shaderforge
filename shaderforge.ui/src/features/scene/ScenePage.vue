@@ -4,13 +4,15 @@
     <div class="scene-toolbar tile">
       <div class="toolbar-section">
         <v-btn size="small" variant="outlined" color="primary" @click="addScene">
-          Add Scene
+          New Scene
         </v-btn>
-        <v-btn size="small" variant="outlined" color="secondary" @click="addPostFx">
+        <v-btn size="small" variant="outlined" color="secondary" @click="addShader"
+          :disabled="selectedSceneIdx < 0">
+          Add Shader
+        </v-btn>
+        <v-btn size="small" variant="outlined" color="secondary" @click="addPostFx"
+          :disabled="selectedSceneIdx < 0">
           Add Post-FX
-        </v-btn>
-        <v-btn size="small" variant="outlined" color="warning" @click="addTransition">
-          Add Transition
         </v-btn>
         <v-divider vertical class="mx-2" />
         <v-btn
@@ -25,177 +27,168 @@
         </v-btn>
       </div>
       <div class="toolbar-section ml-auto">
-        <span class="status-text">Layers: {{ layers.length }}</span>
+        <span class="status-text">Scenes: {{ scenes.length }}</span>
       </div>
     </div>
 
     <div class="scene-panels">
-      <!-- Left: Layer stack + wiring inspector -->
+      <!-- Left: Scene list + per-scene shader stack + wiring inspector -->
       <div class="layer-stack-panel tile">
+        <!-- Scenes section -->
         <div class="panel-header">
-          <v-icon size="18" color="primary">mdi-layers</v-icon>
-          <span>Layer Stack</span>
+          <v-icon size="18" color="primary">mdi-movie-open</v-icon>
+          <span>Scenes</span>
         </div>
 
-        <div v-if="layers.length === 0" class="empty-stack">
-          <v-icon size="48" color="rgba(64,192,255,0.3)">mdi-layers-outline</v-icon>
-          <p>No layers yet. Add a Scene, Post-FX, or Transition layer.</p>
+        <div v-if="scenes.length === 0" class="empty-stack">
+          <v-icon size="48" color="rgba(64,192,255,0.3)">mdi-movie-open-outline</v-icon>
+          <p>No scenes yet. Click <strong>New Scene</strong> to add one.</p>
         </div>
 
         <div v-else class="layers-list">
           <div
-            v-for="(layer, idx) in layers"
-            :key="layer.id"
+            v-for="(scene, idx) in scenes"
+            :key="scene.id"
             class="layer-item"
-            :class="{ 'layer-selected': selectedLayerIdx === idx }"
-            @click="selectLayer(idx)"
+            :class="{ 'layer-selected': selectedSceneIdx === idx }"
+            @click="selectScene(idx)"
           >
-            <div class="layer-drag-handle">
-              <v-icon size="16" color="rgba(255,255,255,0.3)">mdi-drag-vertical</v-icon>
-            </div>
             <div class="layer-info">
-              <v-icon size="15" :color="layerColor(layer.type)">{{ layerIcon(layer.type) }}</v-icon>
-              <span class="layer-name">{{ layer.name }}</span>
-              <v-chip size="x-small" :color="layerColor(layer.type)" variant="tonal">
-                {{ layerLabel(layer.type) }}
+              <v-icon size="15" color="#40c0ff">mdi-movie-open</v-icon>
+              <span class="layer-name">{{ scene.name }}</span>
+              <v-chip size="x-small" color="#40c0ff" variant="tonal">
+                {{ scene.shaders.length }} shader{{ scene.shaders.length !== 1 ? 's' : '' }}
               </v-chip>
             </div>
             <div class="layer-actions">
-              <v-btn icon size="x-small" variant="text" color="rgba(200,200,200,0.7)"
-                title="Move up" aria-label="Move layer up"
-                @click.stop="moveLayerUp(idx)" :disabled="idx === 0">
-                <v-icon size="14">mdi-chevron-up</v-icon>
-              </v-btn>
-              <v-btn icon size="x-small" variant="text" color="rgba(200,200,200,0.7)"
-                title="Move down" aria-label="Move layer down"
-                @click.stop="moveLayerDown(idx)" :disabled="idx === layers.length - 1">
-                <v-icon size="14">mdi-chevron-down</v-icon>
-              </v-btn>
               <v-btn icon size="x-small" variant="text" color="rgba(255,100,100,0.85)"
-                title="Remove layer" aria-label="Remove layer"
-                @click.stop="removeLayer(idx)">
+                title="Remove scene" aria-label="Remove scene"
+                @click.stop="removeScene(idx)">
                 <v-icon size="14">mdi-close</v-icon>
               </v-btn>
             </div>
           </div>
         </div>
 
-        <!-- ---- Wiring inspector (updates based on selected layer type) ---- -->
-        <div v-if="selectedLayer" class="wiring-inspector">
-          <!-- SCENE: output mode + channel inputs -->
-          <template v-if="selectedLayer.type === 'scene'">
-            <div class="wiring-header">
-              <v-icon size="15" color="primary">mdi-connection</v-icon>
-              <span>Scene: {{ selectedLayer.name }}</span>
-            </div>
-            <div class="wiring-row">
-              <span class="wiring-label">Output</span>
-              <v-btn-toggle
-                v-model="selectedLayer.outputMode"
-                mandatory
-                density="compact"
-                class="output-toggle"
-              >
-                <v-btn value="buffer" size="x-small">Buffer</v-btn>
-                <v-btn value="screen" size="x-small">Screen</v-btn>
-              </v-btn-toggle>
-            </div>
-            <div v-for="ch in 4" :key="ch" class="wiring-row">
-              <span class="wiring-label">iCh{{ ch - 1 }}</span>
-              <v-select
-                v-model="selectedLayer.channels[ch - 1]"
-                :items="namedBufferLayers"
-                density="compact"
-                hide-details
-                variant="outlined"
-                placeholder="None"
-                clearable
-                class="wiring-select"
-              />
-            </div>
-          </template>
+        <!-- Shaders in selected scene -->
+        <template v-if="selectedScene">
+          <div class="panel-header sub-header">
+            <v-icon size="15" color="secondary">mdi-layers</v-icon>
+            <span>Shaders in <em>{{ selectedScene.name }}</em></span>
+          </div>
 
-          <!-- POSTFX: single input buffer -->
-          <template v-else-if="selectedLayer.type === 'postfx'">
-            <div class="wiring-header">
-              <v-icon size="15" color="secondary">mdi-connection</v-icon>
-              <span>PostFX: {{ selectedLayer.name }}</span>
-            </div>
-            <div class="wiring-row">
-              <span class="wiring-label">iCh0 (in)</span>
-              <v-select
-                v-model="selectedLayer.channels[0]"
-                :items="namedBufferLayers"
-                density="compact"
-                hide-details
-                variant="outlined"
-                placeholder="Previous layer"
-                clearable
-                class="wiring-select"
-              />
-            </div>
-          </template>
+          <div v-if="selectedScene.shaders.length === 0" class="empty-stack small-empty">
+            <p>No shaders. Use <strong>Add Shader</strong> or <strong>Add Post-FX</strong>.</p>
+          </div>
 
-          <!-- TRANSITION: buffer A, buffer B, time factor -->
-          <template v-else-if="selectedLayer.type === 'transition'">
-            <div class="wiring-header">
-              <v-icon size="15" color="warning">mdi-swap-horizontal</v-icon>
-              <span>Transition: {{ selectedLayer.name }}</span>
+          <div v-else class="layers-list">
+            <div
+              v-for="(shader, idx) in selectedScene.shaders"
+              :key="shader.id"
+              class="layer-item"
+              :class="{ 'layer-selected': selectedShaderIdx === idx }"
+              @click="selectShader(idx)"
+            >
+              <div class="layer-drag-handle">
+                <v-icon size="16" color="rgba(255,255,255,0.3)">mdi-drag-vertical</v-icon>
+              </div>
+              <div class="layer-info">
+                <v-icon size="15" :color="shaderColor(shader.type)">{{ shaderIcon(shader.type) }}</v-icon>
+                <span class="layer-name">{{ shader.name }}</span>
+                <v-chip size="x-small" :color="shaderColor(shader.type)" variant="tonal">
+                  {{ shaderLabel(shader.type) }}
+                </v-chip>
+              </div>
+              <div class="layer-actions">
+                <v-btn icon size="x-small" variant="text" color="rgba(200,200,200,0.7)"
+                  title="Move up" aria-label="Move shader up"
+                  @click.stop="moveShaderUp(idx)" :disabled="idx === 0">
+                  <v-icon size="14">mdi-chevron-up</v-icon>
+                </v-btn>
+                <v-btn icon size="x-small" variant="text" color="rgba(200,200,200,0.7)"
+                  title="Move down" aria-label="Move shader down"
+                  @click.stop="moveShaderDown(idx)" :disabled="idx === selectedScene.shaders.length - 1">
+                  <v-icon size="14">mdi-chevron-down</v-icon>
+                </v-btn>
+                <v-btn icon size="x-small" variant="text" color="rgba(255,100,100,0.85)"
+                  title="Remove shader" aria-label="Remove shader"
+                  @click.stop="removeShader(idx)">
+                  <v-icon size="14">mdi-close</v-icon>
+                </v-btn>
+              </div>
             </div>
-            <div class="wiring-row">
-              <span class="wiring-label">Buffer A</span>
-              <v-select
-                v-model="selectedLayer.transitionSourceA"
-                :items="namedBufferLayers"
-                density="compact"
-                hide-details
-                variant="outlined"
-                placeholder="None"
-                clearable
-                class="wiring-select"
-              />
-            </div>
-            <div class="wiring-row">
-              <span class="wiring-label">Buffer B</span>
-              <v-select
-                v-model="selectedLayer.transitionSourceB"
-                :items="namedBufferLayers"
-                density="compact"
-                hide-details
-                variant="outlined"
-                placeholder="None"
-                clearable
-                class="wiring-select"
-              />
-            </div>
-            <div class="wiring-row">
-              <span class="wiring-label">Time ({{ selectedLayer.transitionTimeFactor.toFixed(2) }})</span>
-              <v-slider
-                v-model="selectedLayer.transitionTimeFactor"
-                min="0"
-                max="1"
-                step="0.01"
-                hide-details
-                density="compact"
-                color="warning"
-                class="wiring-slider"
-              />
-            </div>
-          </template>
-        </div>
+          </div>
+
+          <!-- ---- Wiring inspector (updates based on selected shader type) ---- -->
+          <div v-if="selectedShader" class="wiring-inspector">
+            <!-- PIXEL SHADER: output mode + channel inputs -->
+            <template v-if="selectedShader.type === 'pixelshader'">
+              <div class="wiring-header">
+                <v-icon size="15" color="primary">mdi-connection</v-icon>
+                <span>Shader: {{ selectedShader.name }}</span>
+              </div>
+              <div class="wiring-row">
+                <span class="wiring-label">Output</span>
+                <v-btn-toggle
+                  v-model="selectedShader.outputMode"
+                  mandatory
+                  density="compact"
+                  class="output-toggle"
+                >
+                  <v-btn value="buffer" size="x-small">Buffer</v-btn>
+                  <v-btn value="screen" size="x-small">Screen</v-btn>
+                </v-btn-toggle>
+              </div>
+              <div v-for="ch in 4" :key="ch" class="wiring-row">
+                <span class="wiring-label">iCh{{ ch - 1 }}</span>
+                <v-select
+                  v-model="selectedShader.channels[ch - 1]"
+                  :items="namedBufferShaders"
+                  density="compact"
+                  hide-details
+                  variant="outlined"
+                  placeholder="None"
+                  clearable
+                  class="wiring-select"
+                />
+              </div>
+            </template>
+
+            <!-- POST-FX: single input buffer -->
+            <template v-else-if="selectedShader.type === 'postfx'">
+              <div class="wiring-header">
+                <v-icon size="15" color="secondary">mdi-connection</v-icon>
+                <span>PostFX: {{ selectedShader.name }}</span>
+              </div>
+              <div class="wiring-row">
+                <span class="wiring-label">iCh0 (in)</span>
+                <v-select
+                  v-model="selectedShader.channels[0]"
+                  :items="namedBufferShaders"
+                  density="compact"
+                  hide-details
+                  variant="outlined"
+                  placeholder="Previous layer"
+                  clearable
+                  class="wiring-select"
+                />
+              </div>
+            </template>
+          </div>
+        </template>
       </div>
 
       <!-- Center: Monaco code editor -->
       <div class="code-panel tile">
         <div class="panel-header">
-          <v-icon size="18" :color="selectedLayer ? layerColor(selectedLayer.type) : 'primary'">
+          <v-icon size="18" :color="selectedShader ? shaderColor(selectedShader.type) : 'primary'">
             mdi-code-braces
           </v-icon>
-          <span>{{ selectedLayer ? selectedLayer.name : 'Select a layer' }} — Fragment Shader</span>
+          <span>{{ selectedShader ? selectedShader.name : 'Select a shader' }} — Fragment Shader</span>
         </div>
 
         <!-- Parameters accordion (uniforms + channels) -->
-        <v-expansion-panels v-if="selectedLayer" variant="accordion" class="params-panels">
+        <v-expansion-panels v-if="selectedShader" variant="accordion" class="params-panels">
           <v-expansion-panel>
             <v-expansion-panel-title class="params-panel-title">
               <v-icon size="13" class="mr-1">mdi-variable</v-icon>
@@ -218,30 +211,18 @@
             </v-expansion-panel-title>
             <v-expansion-panel-text>
               <div class="channel-info-grid">
-                <template v-if="selectedLayer.type === 'scene'">
+                <template v-if="selectedShader.type === 'pixelshader'">
                   <div v-for="ch in 4" :key="ch" class="channel-info-row">
                     <span class="channel-binding">iChannel{{ ch - 1 }}</span>
                     <span class="channel-sampler">iChannel{{ ch - 1 }}Sampler</span>
-                    <span class="channel-source">{{ selectedLayer.channels[ch - 1] || '(none)' }}</span>
-                  </div>
-                </template>
-                <template v-else-if="selectedLayer.type === 'transition'">
-                  <div class="channel-info-row">
-                    <span class="channel-binding">iChannel0</span>
-                    <span class="channel-sampler">iChannel0Sampler</span>
-                    <span class="channel-source">{{ selectedLayer.transitionSourceA || '(none)' }}</span>
-                  </div>
-                  <div class="channel-info-row">
-                    <span class="channel-binding">iChannel1</span>
-                    <span class="channel-sampler">iChannel1Sampler</span>
-                    <span class="channel-source">{{ selectedLayer.transitionSourceB || '(none)' }}</span>
+                    <span class="channel-source">{{ selectedShader.channels[ch - 1] || '(none)' }}</span>
                   </div>
                 </template>
                 <template v-else>
                   <div class="channel-info-row">
                     <span class="channel-binding">iChannel0</span>
                     <span class="channel-sampler">iChannel0Sampler</span>
-                    <span class="channel-source">{{ selectedLayer.channels[0] || '(previous layer)' }}</span>
+                    <span class="channel-source">{{ selectedShader.channels[0] || '(previous layer)' }}</span>
                   </div>
                 </template>
               </div>
@@ -249,10 +230,10 @@
           </v-expansion-panel>
         </v-expansion-panels>
 
-        <div class="editor-body" v-if="selectedLayer">
+        <div class="editor-body" v-if="selectedShader">
           <MonacoEditor
-            :key="selectedLayer.id"
-            v-model="selectedLayer.fragmentShader"
+            :key="selectedShader.id"
+            v-model="selectedShader.fragmentShader"
             language="wgsl"
             :options="editorOptions"
             class="fill-editor"
@@ -260,7 +241,7 @@
         </div>
         <div v-else class="empty-editor">
           <v-icon size="48" color="rgba(64,192,255,0.3)">mdi-code-braces</v-icon>
-          <p>Select a layer to edit its shader</p>
+          <p>Select a shader to edit its code</p>
         </div>
         <div v-if="compileError" class="compile-error-overlay">
           <pre>{{ compileError }}</pre>
@@ -282,6 +263,67 @@
         </div>
       </div>
     </div>
+
+    <!-- ---- Forge Picker Dialog ------------------------------------------ -->
+    <v-dialog v-model="showForgePicker" max-width="480" scrollable>
+      <v-card class="forge-picker-card">
+        <v-card-title class="forge-picker-title">
+          <v-icon
+            size="18"
+            :color="forgePickerMode === 'pixelshader' ? 'primary' : 'secondary'"
+            class="mr-2"
+          >{{ forgePickerMode === 'pixelshader' ? 'mdi-image' : 'mdi-image-filter-drama' }}</v-icon>
+          Add {{ forgePickerMode === 'pixelshader' ? 'Shader' : 'Post-FX' }} to Scene
+        </v-card-title>
+
+        <v-card-text class="forge-picker-body">
+          <v-text-field
+            v-model="forgePickerSearch"
+            placeholder="Search shaders…"
+            prepend-inner-icon="mdi-magnify"
+            density="compact"
+            hide-details
+            variant="outlined"
+            class="mb-3"
+          />
+
+          <div v-if="forgePickerLoading" class="picker-loading">
+            <v-progress-circular indeterminate size="28" color="primary" />
+          </div>
+
+          <div v-else-if="filteredForgeShaders.length === 0" class="picker-empty">
+            <v-icon size="32" color="rgba(64,192,255,0.3)">mdi-folder-open-outline</v-icon>
+            <p v-if="!username">Log in to pick from your saved forges.</p>
+            <p v-else>No saved shaders found. Create a blank one below.</p>
+          </div>
+
+          <v-list v-else density="compact" class="forge-list">
+            <v-list-item
+              v-for="shader in filteredForgeShaders"
+              :key="shader.id"
+              :title="shader.title"
+              :subtitle="shader.createdAt ? new Date(shader.createdAt).toLocaleDateString() : ''"
+              prepend-icon="mdi-code-braces"
+              class="forge-list-item"
+              @click="addFromForge(shader)"
+            />
+          </v-list>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="forge-picker-actions">
+          <v-btn variant="text" @click="showForgePicker = false">Cancel</v-btn>
+          <v-spacer />
+          <v-btn
+            variant="outlined"
+            color="primary"
+            prepend-icon="mdi-plus"
+            @click="addNewBlankFromPicker"
+          >New Blank</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -290,25 +332,28 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import MonacoEditor from '@/components/MonacoEditor.vue';
 import { ShaderEffect, LayerStack, DEFAULT_SCENE_FRAGMENT_WGSL } from '@shaderforge/engine';
 import { webgpuInitError } from '@/utils/webgpu';
+import { getShadersByCreatedBy } from '@/services/apiService';
+import { useAuth } from '@/composables/useAuth';
+import type { Shader } from '@/models/shaders';
 
 // ---- Types ----------------------------------------------------------------
-type LayerType = 'scene' | 'postfx' | 'transition';
+type ShaderType = 'pixelshader' | 'postfx';
 
-interface SceneLayer {
+interface SceneShader {
   id: string;
   name: string;
-  type: LayerType;
+  type: ShaderType;
   fragmentShader: string;
-  /** iChannel0–3 → named buffer scene (scene/transition layers) */
+  /** iChannel0–3 → named buffer shader (pixelshader layers) */
   channels: (string | null)[];
-  /** Scene only: render to a named off-screen buffer or directly to screen */
+  /** Pixel shader only: render to a named off-screen buffer or directly to screen */
   outputMode: 'buffer' | 'screen';
-  /** Transition only: first source buffer (→ iChannel0) */
-  transitionSourceA: string | null;
-  /** Transition only: second source buffer (→ iChannel1) */
-  transitionSourceB: string | null;
-  /** Transition only: blend factor 0–1 (exposed to shader as iChannel2 value or uniform) */
-  transitionTimeFactor: number;
+}
+
+interface SceneContainer {
+  id: string;
+  name: string;
+  shaders: SceneShader[];
 }
 
 // ---- State ----------------------------------------------------------------
@@ -316,53 +361,74 @@ const previewCanvas = ref<HTMLCanvasElement | null>(null);
 const isPlaying = ref(false);
 const initError = ref<string | null>(null);
 const compileError = ref<string | null>(null);
-const selectedLayerIdx = ref<number>(-1);
+const selectedSceneIdx = ref<number>(-1);
+const selectedShaderIdx = ref<number>(-1);
 let effect: ShaderEffect | null = null;
-let layerCounter = 0;
+let itemCounter = 0;
 
-const layers = ref<SceneLayer[]>([
+// ---- Auth -----------------------------------------------------------------
+const { username } = useAuth();
+
+// ---- Forge picker dialog --------------------------------------------------
+const showForgePicker = ref(false);
+const forgePickerMode = ref<ShaderType>('pixelshader');
+const forgeShaders = ref<Shader[]>([]);
+const forgePickerSearch = ref('');
+const forgePickerLoading = ref(false);
+
+const scenes = ref<SceneContainer[]>([
   {
     id: crypto.randomUUID(),
-    name: 'base',
-    type: 'scene',
-    fragmentShader: DEFAULT_SCENE_FRAGMENT_WGSL,
-    channels: [null, null, null, null],
-    outputMode: 'buffer',
-    transitionSourceA: null,
-    transitionSourceB: null,
-    transitionTimeFactor: 0,
+    name: 'scene1',
+    shaders: [
+      {
+        id: crypto.randomUUID(),
+        name: 'base',
+        type: 'pixelshader',
+        fragmentShader: DEFAULT_SCENE_FRAGMENT_WGSL,
+        channels: [null, null, null, null],
+        outputMode: 'buffer',
+      },
+    ],
   },
 ]);
 
 // ---- Derived --------------------------------------------------------------
-const selectedLayer = computed<SceneLayer | null>(() =>
-  selectedLayerIdx.value >= 0 ? layers.value[selectedLayerIdx.value] : null
+const selectedScene = computed<SceneContainer | null>(() =>
+  selectedSceneIdx.value >= 0 ? scenes.value[selectedSceneIdx.value] : null
 );
 
-/** Names of all scene/transition layers that produce a buffer — usable as inputs */
-const namedBufferLayers = computed<string[]>(() =>
-  layers.value
-    .filter(l => l.type === 'scene' || l.type === 'transition')
-    .map(l => l.name)
+const selectedShader = computed<SceneShader | null>(() => {
+  const sc = selectedScene.value;
+  return sc && selectedShaderIdx.value >= 0 ? sc.shaders[selectedShaderIdx.value] : null;
+});
+
+/** Names of all pixelshader entries in the selected scene — usable as channel inputs */
+const namedBufferShaders = computed<string[]>(() =>
+  selectedScene.value?.shaders
+    .filter(s => s.type === 'pixelshader')
+    .map(s => s.name) ?? []
 );
 
-// ---- Layer type helpers ---------------------------------------------------
-function layerIcon(type: LayerType): string {
-  if (type === 'scene') return 'mdi-image';
-  if (type === 'transition') return 'mdi-swap-horizontal';
-  return 'mdi-image-filter-drama';
+/** Forge shaders filtered by the search string */
+const filteredForgeShaders = computed<Shader[]>(() => {
+  const q = forgePickerSearch.value.trim().toLowerCase();
+  return q
+    ? forgeShaders.value.filter(s => s.title.toLowerCase().includes(q))
+    : forgeShaders.value;
+});
+
+// ---- Shader type helpers --------------------------------------------------
+function shaderIcon(type: ShaderType): string {
+  return type === 'pixelshader' ? 'mdi-image' : 'mdi-image-filter-drama';
 }
 
-function layerColor(type: LayerType): string {
-  if (type === 'scene') return '#40c0ff';
-  if (type === 'transition') return '#ffa040';
-  return '#9b59b6';
+function shaderColor(type: ShaderType): string {
+  return type === 'pixelshader' ? '#40c0ff' : '#9b59b6';
 }
 
-function layerLabel(type: LayerType): string {
-  if (type === 'scene') return 'Scene';
-  if (type === 'transition') return 'Transition';
-  return 'PostFX';
+function shaderLabel(type: ShaderType): string {
+  return type === 'pixelshader' ? 'Shader' : 'PostFX';
 }
 
 // ---- Editor options -------------------------------------------------------
@@ -390,87 +456,142 @@ const BUILTIN_UNIFORMS = [
   { type: 'f32',   name: 'sixteenthPhase', desc: '0→1 within a sixteenth note' },
 ] as const;
 
-// ---- Layer management -----------------------------------------------------
-function makeLayer(type: LayerType, suffix: string): SceneLayer {
-  layerCounter += 1;
+// ---- Scene management -----------------------------------------------------
+function addScene() {
+  itemCounter += 1;
+  scenes.value.push({
+    id: crypto.randomUUID(),
+    name: `scene${itemCounter}`,
+    shaders: [],
+  });
+  selectedSceneIdx.value = scenes.value.length - 1;
+  selectedShaderIdx.value = -1;
+}
+
+function removeScene(idx: number) {
+  scenes.value.splice(idx, 1);
+  if (selectedSceneIdx.value >= scenes.value.length) {
+    selectedSceneIdx.value = scenes.value.length - 1;
+  }
+  selectedShaderIdx.value = -1;
+}
+
+function selectScene(idx: number) {
+  selectedSceneIdx.value = idx;
+  selectedShaderIdx.value = -1;
+}
+
+// ---- Shader management (within selected scene) ----------------------------
+function makeShader(type: ShaderType, suffix: string): SceneShader {
+  itemCounter += 1;
   return {
     id: crypto.randomUUID(),
-    name: `${suffix}${layerCounter}`,
+    name: `${suffix}${itemCounter}`,
     type,
     fragmentShader: DEFAULT_SCENE_FRAGMENT_WGSL,
     channels: [null, null, null, null],
     outputMode: 'buffer',
-    transitionSourceA: null,
-    transitionSourceB: null,
-    transitionTimeFactor: 0,
   };
 }
 
-function addScene() {
-  layers.value.push(makeLayer('scene', 'scene'));
-  selectedLayerIdx.value = layers.value.length - 1;
+async function openForgePicker(type: ShaderType) {
+  if (!selectedScene.value) return;
+  forgePickerMode.value = type;
+  forgePickerSearch.value = '';
+  forgeShaders.value = [];
+  forgePickerLoading.value = true;
+  showForgePicker.value = true;
+  if (username.value) {
+    try {
+      forgeShaders.value = await getShadersByCreatedBy(username.value);
+    } catch {
+      // Silently ignore — user can still create a new blank shader
+    }
+  }
+  forgePickerLoading.value = false;
+}
+
+function addShader() {
+  openForgePicker('pixelshader');
 }
 
 function addPostFx() {
-  layers.value.push(makeLayer('postfx', 'postfx'));
-  selectedLayerIdx.value = layers.value.length - 1;
+  openForgePicker('postfx');
 }
 
-function addTransition() {
-  layers.value.push(makeLayer('transition', 'transition'));
-  selectedLayerIdx.value = layers.value.length - 1;
+/** Add a shader from the user's forge to the selected scene. */
+function addFromForge(shader: Shader) {
+  const sc = selectedScene.value;
+  if (!sc) return;
+  itemCounter += 1;
+  sc.shaders.push({
+    id: crypto.randomUUID(),
+    name: shader.title,
+    type: forgePickerMode.value,
+    fragmentShader: shader.fragmentShaderCode ?? DEFAULT_SCENE_FRAGMENT_WGSL,
+    channels: [null, null, null, null],
+    outputMode: 'buffer',
+  });
+  selectedShaderIdx.value = sc.shaders.length - 1;
+  showForgePicker.value = false;
 }
 
-function removeLayer(idx: number) {
-  layers.value.splice(idx, 1);
-  if (selectedLayerIdx.value >= layers.value.length) {
-    selectedLayerIdx.value = layers.value.length - 1;
+/** Add a blank new shader to the selected scene (no forge required). */
+function addNewBlankFromPicker() {
+  const sc = selectedScene.value;
+  if (!sc) return;
+  const suffix = forgePickerMode.value === 'postfx' ? 'postfx' : 'shader';
+  sc.shaders.push(makeShader(forgePickerMode.value, suffix));
+  selectedShaderIdx.value = sc.shaders.length - 1;
+  showForgePicker.value = false;
+}
+
+function removeShader(idx: number) {
+  const sc = selectedScene.value;
+  if (!sc) return;
+  sc.shaders.splice(idx, 1);
+  if (selectedShaderIdx.value >= sc.shaders.length) {
+    selectedShaderIdx.value = sc.shaders.length - 1;
   }
 }
 
-function moveLayerUp(idx: number) {
-  if (idx <= 0) return;
-  const arr = layers.value;
-  [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
-  if (selectedLayerIdx.value === idx) selectedLayerIdx.value = idx - 1;
-  else if (selectedLayerIdx.value === idx - 1) selectedLayerIdx.value = idx;
+function moveShaderUp(idx: number) {
+  const shaders = selectedScene.value?.shaders;
+  if (!shaders || idx <= 0) return;
+  [shaders[idx - 1], shaders[idx]] = [shaders[idx], shaders[idx - 1]];
+  if (selectedShaderIdx.value === idx) selectedShaderIdx.value = idx - 1;
+  else if (selectedShaderIdx.value === idx - 1) selectedShaderIdx.value = idx;
 }
 
-function moveLayerDown(idx: number) {
-  const arr = layers.value;
-  if (idx >= arr.length - 1) return;
-  [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
-  if (selectedLayerIdx.value === idx) selectedLayerIdx.value = idx + 1;
-  else if (selectedLayerIdx.value === idx + 1) selectedLayerIdx.value = idx;
+function moveShaderDown(idx: number) {
+  const shaders = selectedScene.value?.shaders;
+  if (!shaders || idx >= shaders.length - 1) return;
+  [shaders[idx], shaders[idx + 1]] = [shaders[idx + 1], shaders[idx]];
+  if (selectedShaderIdx.value === idx) selectedShaderIdx.value = idx + 1;
+  else if (selectedShaderIdx.value === idx + 1) selectedShaderIdx.value = idx;
 }
 
-function selectLayer(idx: number) {
-  selectedLayerIdx.value = idx;
+function selectShader(idx: number) {
+  selectedShaderIdx.value = idx;
 }
 
 // ---- Stack compilation ----------------------------------------------------
 async function recompileStack() {
-  if (!previewCanvas.value) return;
+  const sc = selectedScene.value;
+  if (!previewCanvas.value || !sc) return;
   compileError.value = null;
 
   try {
     const stack = new LayerStack();
 
-    for (const layer of layers.value) {
-      if (layer.type === 'postfx') {
-        stack.postFx(layer.fragmentShader);
+    for (const shader of sc.shaders) {
+      if (shader.type === 'postfx') {
+        stack.postFx(shader.fragmentShader);
       } else {
-        // Scene and Transition both compile as named scene passes with channel wiring
-        const channels = layer.type === 'transition'
-          ? [
-              layer.transitionSourceA ? { channel: 0 as const, source: layer.transitionSourceA } : null,
-              layer.transitionSourceB ? { channel: 1 as const, source: layer.transitionSourceB } : null,
-            ].filter((c): c is NonNullable<typeof c> => c !== null)
-          : layer.channels
-              .map((src, ch) => src ? { channel: ch as 0 | 1 | 2 | 3, source: src } : null)
-              .filter((c): c is NonNullable<typeof c> => c !== null);
-
-        stack.scene({ name: layer.name, fragmentShader: layer.fragmentShader, channels });
+        const channels = shader.channels
+          .map((src, ch) => src ? { channel: ch as 0 | 1 | 2 | 3, source: src } : null)
+          .filter((c): c is NonNullable<typeof c> => c !== null);
+        stack.scene({ name: shader.name, fragmentShader: shader.fragmentShader, channels });
       }
     }
 
@@ -503,7 +624,12 @@ function stopAll() {
 onMounted(async () => {
   if (previewCanvas.value) {
     try {
-      const stack = new LayerStack().scene({ name: 'base', fragmentShader: DEFAULT_SCENE_FRAGMENT_WGSL });
+      const firstScene = scenes.value[0];
+      const firstShader = firstScene?.shaders[0];
+      const stack = new LayerStack().scene({
+        name: firstShader?.name ?? 'base',
+        fragmentShader: firstShader?.fragmentShader ?? DEFAULT_SCENE_FRAGMENT_WGSL,
+      });
       effect = await ShaderEffect.create(previewCanvas.value, { layerStack: stack });
       effect.play();
       isPlaying.value = true;
@@ -511,7 +637,8 @@ onMounted(async () => {
       initError.value = webgpuInitError(err);
     }
   }
-  selectedLayerIdx.value = 0;
+  selectedSceneIdx.value = 0;
+  selectedShaderIdx.value = 0;
 });
 
 onBeforeUnmount(() => {
@@ -519,6 +646,7 @@ onBeforeUnmount(() => {
   effect = null;
 });
 </script>
+
 
 <style scoped>
 /* ---- Full-height layout ------------------------------------------------- */
@@ -591,6 +719,12 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
+.sub-header {
+  font-size: 0.68rem;
+  border-top: 1px solid rgba(64, 192, 255, 0.12);
+  color: rgba(100, 160, 220, 0.85);
+}
+
 .empty-stack {
   flex: 1;
   display: flex;
@@ -602,6 +736,11 @@ onBeforeUnmount(() => {
   font-size: 0.78rem;
   text-align: center;
   padding: 1rem;
+}
+
+.small-empty {
+  flex: none;
+  padding: 0.5rem 1rem;
 }
 
 .layers-list {
@@ -915,5 +1054,73 @@ onBeforeUnmount(() => {
   .scene-panels {
     grid-template-rows: auto 300px 300px;
   }
+}
+
+/* ---- Forge Picker Dialog ------------------------------------------------- */
+.forge-picker-card {
+  background: rgba(16, 18, 28, 0.98) !important;
+  border: 1px solid rgba(64, 192, 255, 0.2);
+}
+
+.forge-picker-title {
+  font-family: 'Audiowide', sans-serif;
+  font-size: 0.85rem;
+  color: #40c0ff;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.forge-picker-body {
+  padding: 0.75rem 1rem !important;
+  min-height: 160px;
+}
+
+.picker-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem 0;
+}
+
+.picker-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem 0;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.forge-list {
+  background: transparent !important;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.forge-list-item {
+  border-radius: 6px;
+  margin-bottom: 2px;
+  cursor: pointer;
+}
+
+:deep(.forge-list-item:hover) {
+  background: rgba(64, 192, 255, 0.1) !important;
+}
+
+:deep(.forge-list-item .v-list-item-title) {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+:deep(.forge-list-item .v-list-item-subtitle) {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.forge-picker-actions {
+  padding: 0.5rem 1rem;
 }
 </style>
