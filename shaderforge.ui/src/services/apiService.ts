@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Shader, ShaderApiResponse } from '@/models/shaders';
+import { Scene, SceneApiResponse, SceneShaderEntry } from '@/models/scenes';
 import { BackgroundImage } from '@/models/background';
 import { useAuth } from '@/composables/useAuth';
 
@@ -141,4 +142,84 @@ export const createShader = async (payload: CreateShaderPayload): Promise<Shader
 export const getShaderById = async (id: string): Promise<Shader> => {
   const response = await axios.get<ShaderApiResponse>(`${API_BASE_URL}/shaders/${id}`);
   return mapToShader(response.data);
+};
+
+// ---------------------------------------------------------------------------
+// Scene API
+// ---------------------------------------------------------------------------
+
+const mapToScene = (api: SceneApiResponse): Scene => ({
+  id: api.id,
+  name: api.name,
+  shaders: api.shaders ?? [],
+  createdBy: api.createdBy,
+  createdAt: new Date(api.createdAt).toISOString(),
+  updatedAt: new Date(api.updatedAt).toISOString(),
+  isPublic: api.isPublic,
+});
+
+/**
+ * Fetches all scenes.
+ */
+export const getAllScenes = async (): Promise<Scene[]> => {
+  const response = await axios.get<SceneApiResponse[]>(`${API_BASE_URL}/scenes`);
+  return response.data.map(mapToScene);
+};
+
+/**
+ * Fetches a scene by its ID.
+ */
+export const getSceneById = async (id: string): Promise<Scene> => {
+  const response = await axios.get<SceneApiResponse>(`${API_BASE_URL}/scenes/${id}`);
+  return mapToScene(response.data);
+};
+
+/**
+ * Fetches scenes created by a given user.
+ */
+export const getScenesByCreatedBy = async (createdBy: string): Promise<Scene[]> => {
+  const response = await axios.get<SceneApiResponse[]>(`${API_BASE_URL}/scenes/createdBy/${createdBy}`);
+  return response.data.map(mapToScene);
+};
+
+export interface CreateScenePayload {
+  name: string;
+  shaders?: SceneShaderEntry[];
+  isPublic?: boolean;
+}
+
+/**
+ * Creates a new scene. Requires a valid JWT token.
+ */
+export const createScene = async (payload: CreateScenePayload): Promise<Scene> => {
+  const { token } = useAuth();
+  const response = await axios.post<SceneApiResponse>(
+    `${API_BASE_URL}/scenes`,
+    payload,
+    { headers: { Authorization: `Bearer ${token.value}` } },
+  );
+  return mapToScene(response.data);
+};
+
+/**
+ * Updates an existing scene. Requires a valid JWT token.
+ */
+export const updateScene = async (id: string, scene: Scene): Promise<void> => {
+  const { token } = useAuth();
+  await axios.put(
+    `${API_BASE_URL}/scenes/${id}`,
+    scene,
+    { headers: { Authorization: `Bearer ${token.value}` } },
+  );
+};
+
+/**
+ * Deletes a scene by ID. Requires a valid JWT token.
+ */
+export const deleteScene = async (id: string): Promise<void> => {
+  const { token } = useAuth();
+  await axios.delete(
+    `${API_BASE_URL}/scenes/${id}`,
+    { headers: { Authorization: `Bearer ${token.value}` } },
+  );
 };
