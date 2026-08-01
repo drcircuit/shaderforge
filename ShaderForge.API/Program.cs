@@ -94,6 +94,7 @@ internal class Program
             builder.Services.AddSingleton<IUserStore, InMemoryUserStore>();
             builder.Services.AddScoped<IShaderStore, InMemoryShaderStore>();
             builder.Services.AddSingleton<IUserService, InMemoryUserService>();
+            builder.Services.AddSingleton<ISceneRepository, InMemorySceneRepository>();
         }
         else
         {
